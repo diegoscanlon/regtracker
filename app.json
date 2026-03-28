@@ -1,7 +1,8 @@
 {
   "expo": {
     "name": "expo-supabase-app",
-    "slug": "expo-supabase-app",
+    "slug": "regtracker",
+    "scheme": "regtracker",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -26,7 +27,22 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "RegTracker tracks your location to measure time spent at UChicago spots.",
+          "locationAlwaysAndWhenInUsePermission": "RegTracker tracks your location to measure time spent at UChicago spots."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow RegTracker to access your photos to set a profile picture.",
+          "cameraPermission": "Allow RegTracker to take a photo for your profile."
+        }
+      ],
+      "expo-web-browser"
     ]
   }
 }
