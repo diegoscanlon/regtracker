@@ -1,36 +1,24 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { COLORS, FONTS } from '../constants/theme';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import CustomTabBar from '../components/CustomTabBar';
 
-// Placeholder — main app goes here
+import Stats from './Stats';
+import Leaderboard from './Leaderboard';
+import Friends from './Friends';
+import Admin from './Admin';
+
+const Tab = createBottomTabNavigator();
+
 export default function Home() {
   return (
-    <LinearGradient colors={['#FFF5F8', '#F0F8FF']} style={styles.container}>
-      <Text style={styles.emoji}>📍</Text>
-      <Text style={styles.title}>REGTRACKER</Text>
-      <Text style={styles.subtitle}>leaderboard coming soon...</Text>
-    </LinearGradient>
+    <Tab.Navigator
+      tabBar={(props) => <CustomTabBar {...props} />}
+      screenOptions={{ headerShown: false }}
+    >
+      <Tab.Screen name="Profile" component={Stats} />
+      <Tab.Screen name="Leaderboard" component={Leaderboard} />
+      <Tab.Screen name="Friends" component={Friends} />
+      <Tab.Screen name="Admin" component={Admin} />
+    </Tab.Navigator>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 16,
-  },
-  emoji: { fontSize: 52 },
-  title: {
-    fontFamily: FONTS.pixel,
-    fontSize: 16,
-    color: COLORS.dark,
-    letterSpacing: 2,
-  },
-  subtitle: {
-    fontSize: 13,
-    color: COLORS.muted,
-    fontStyle: 'italic',
-  },
-});

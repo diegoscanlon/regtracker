@@ -1,87 +1,129 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, Animated, Pressable, SafeAreaView,
+  View, Text, StyleSheet, SafeAreaView,
+  TouchableOpacity, Linking, AppState,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
-import PixelButton from '../../components/PixelButton';
-import { COLORS, FONTS } from '../../constants/theme';
+import { COLORS, FONTS, LAYOUT } from '../../constants/theme';
+
+function StepBadge({ number, label, highlight }) {
+  return (
+    <View style={styles.stepRow}>
+      <View style={[styles.stepNumber, highlight && styles.stepNumberHighlight]}>
+        <Text style={[styles.stepNumberText, highlight && styles.stepNumberTextHighlight]}>
+          {number}
+        </Text>
+      </View>
+      <Text style={styles.stepInstruction}>Tap</Text>
+      <View style={styles.iosBadge}>
+        <Text style={styles.iosBadgeText}>{label}</Text>
+      </View>
+    </View>
+  );
+}
 
 export default function LocationScreen({ navigation }) {
-  const [status, setStatus] = useState('idle'); // 'idle' | 'granted' | 'denied'
+  const [status, setStatus] = useState('idle'); // 'idle' | 'granted' | 'needsAlways'
 
-  // Gentle bouncing pin animation
-  const bounceAnim = useRef(new Animated.Value(0)).current;
-
+  // Re-check permissions when user comes back from Settings
   useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(bounceAnim, { toValue: -12, duration: 500, useNativeDriver: true }),
-        Animated.timing(bounceAnim, { toValue: 0, duration: 500, useNativeDriver: true }),
-      ])
-    ).start();
-  }, []);
+    const sub = AppState.addEventListener('change', async (state) => {
+      if (state === 'active' && status === 'needsAlways') {
+        const bg = await Location.getBackgroundPermissionsAsync();
+        if (bg.status === 'granted') {
+          setStatus('granted');
+          setTimeout(() => navigation.navigate('Photo'), 800);
+        }
+      }
+    });
+    return () => sub.remove();
+  }, [status]);
 
   const handleAllow = async () => {
-    const { status: permStatus } = await Location.requestForegroundPermissionsAsync();
-    if (permStatus === 'granted') {
+    const { status: fgStatus } = await Location.requestForegroundPermissionsAsync();
+    if (fgStatus !== 'granted') {
+      setStatus('needsAlways');
+      return;
+    }
+
+    const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
+    if (bgStatus === 'granted') {
       setStatus('granted');
       setTimeout(() => navigation.navigate('Photo'), 800);
     } else {
-      setStatus('denied');
+      setStatus('needsAlways');
     }
   };
 
-  const handleSkip = () => {
-    navigation.navigate('Photo');
-  };
+  // ── "Needs Always" fallback ──────────────────────────────────────────────
+  if (status === 'needsAlways') {
+    return (
+      <LinearGradient colors={['#FFE8E8', '#FFF5F5', '#FFE8E8']} style={styles.gradient}>
+        <SafeAreaView style={styles.safe}>
+          <View style={styles.centerContent}>
+            <Text style={styles.emoji}>📍</Text>
+            <Text style={styles.title}>One more thing</Text>
+            <Text style={styles.body}>
+              Reggy needs location set to{' '}
+              <Text style={styles.bold}>"Always"</Text>
+              {' '}to work.{'\n\n'}
+              Open Settings → Location → select{' '}
+              <Text style={styles.bold}>Always</Text>.
+            </Text>
+          </View>
 
+          <View style={styles.bottom}>
+            <TouchableOpacity
+              style={styles.actionBtn}
+              onPress={() => Linking.openSettings()}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.actionBtnLabel}>Open Settings</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
+    );
+  }
+
+  // ── "Granted" brief flash ────────────────────────────────────────────────
+  if (status === 'granted') {
+    return (
+      <LinearGradient colors={['#D4FFE8', '#E8FFF0', '#D4FFE8']} style={styles.gradient}>
+        <SafeAreaView style={styles.safe}>
+          <View style={styles.centerContent}>
+            <Text style={styles.emoji}>✓</Text>
+            <Text style={styles.title}>You're all set</Text>
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
+    );
+  }
+
+  // ── Main screen ──────────────────────────────────────────────────────────
   return (
     <LinearGradient colors={['#D4FFE8', '#FFF5F8', '#D4E8FF']} style={styles.gradient}>
       <SafeAreaView style={styles.safe}>
-        {/* Animated pin */}
-        <View style={styles.pinArea}>
-          <Animated.View style={{ transform: [{ translateY: bounceAnim }] }}>
-            <View style={styles.pinWrapper}>
-              <View style={styles.pinShadow} />
-              <View style={styles.pinBox}>
-                <Text style={styles.pinEmoji}>📍</Text>
-              </View>
-            </View>
-          </Animated.View>
-          {/* Shadow dot on ground */}
-          <View style={styles.pinGroundShadow} />
+        <View style={styles.header}>
+          <Text style={styles.title}>Enable Location{'\n'}in 2 Steps</Text>
         </View>
 
-        {/* Text */}
-        <View style={styles.textArea}>
-          <Text style={styles.title}>ALLOW{'\n'}LOCATION</Text>
-          <Text style={styles.desc}>
-            {status === 'denied'
-              ? 'Location access was denied. You can enable it later in Settings.'
-              : "We track which UChicago spots you're at and for how long — that's how you earn your rank."}
-          </Text>
+        <View style={styles.stepsArea}>
+          <StepBadge number="1" label="Allow While Using App" highlight />
+          <StepBadge number="2" label="Change to Always Allow" highlight />
+
+          <Text style={styles.warning}>Otherwise Reggy won't work!</Text>
         </View>
 
-        {/* Actions */}
-        <View style={styles.actions}>
-          {status === 'granted' ? (
-            <View style={styles.grantedBadge}>
-              <Text style={styles.grantedText}>✓ location enabled!</Text>
-            </View>
-          ) : (
-            <>
-              <PixelButton
-                label={status === 'denied' ? 'OPEN SETTINGS' : 'ALLOW LOCATION'}
-                icon="📍"
-                onPress={handleAllow}
-                color={COLORS.mint}
-              />
-              <Pressable onPress={handleSkip} style={styles.skipBtn}>
-                <Text style={styles.skipText}>not now</Text>
-              </Pressable>
-            </>
-          )}
+        <View style={styles.bottom}>
+          <TouchableOpacity
+            style={styles.actionBtn}
+            onPress={handleAllow}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.actionBtnLabel}>Enable Location</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     </LinearGradient>
@@ -92,89 +134,123 @@ const styles = StyleSheet.create({
   gradient: { flex: 1 },
   safe: {
     flex: 1,
+  },
+  header: {
+    ...LAYOUT.titleContainer,
+  },
+  stepsArea: {
+    flex: 1,
     alignItems: 'center',
-    justifyContent: 'space-around',
-    paddingVertical: 56,
-    paddingHorizontal: 32,
+    justifyContent: 'center',
+    paddingHorizontal: 36,
+    gap: 14,
   },
-  pinArea: {
+  warning: {
+    fontFamily: FONTS.mono,
+    fontSize: 14,
+    color: COLORS.dark,
+    opacity: 0.55,
+    textAlign: 'center',
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
+  emoji: {
+    fontSize: 44,
+    marginBottom: 4,
+  },
+  title: {
+    fontFamily: FONTS.ghibli,
+    fontSize: 34,
+    color: COLORS.dark,
+    textAlign: 'center',
+    lineHeight: 44,
+  },
+  body: {
+    fontFamily: FONTS.mono,
+    fontSize: 15,
+    color: COLORS.dark,
+    textAlign: 'center',
+    lineHeight: 24,
+    opacity: 0.75,
+  },
+  bold: {
+    fontWeight: '700',
+    opacity: 1,
+  },
+
+  // Steps
+  steps: {
+    width: '100%',
+    gap: 14,
+    marginTop: 12,
+  },
+  stepsLabel: {
+    fontFamily: FONTS.mono,
+    fontSize: 12,
+    color: COLORS.dark,
+    opacity: 0.45,
+    textAlign: 'center',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  stepRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    justifyContent: 'center',
+    gap: 10,
   },
-  pinWrapper: {
-    position: 'relative',
-    width: 100,
-    height: 100,
-  },
-  pinShadow: {
-    position: 'absolute',
-    top: 5,
-    left: 5,
-    width: 96,
-    height: 96,
-    backgroundColor: COLORS.dark,
-  },
-  pinBox: {
-    width: 96,
-    height: 96,
-    backgroundColor: COLORS.surface,
-    borderWidth: 2,
-    borderColor: COLORS.dark,
+  stepNumber: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(30,18,56,0.08)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pinEmoji: { fontSize: 48 },
-  pinGroundShadow: {
-    width: 48,
-    height: 10,
-    borderRadius: 999,
+  stepNumberHighlight: {
     backgroundColor: COLORS.dark,
-    opacity: 0.15,
   },
-  textArea: {
-    alignItems: 'center',
-    gap: 16,
-  },
-  title: {
-    fontFamily: FONTS.pixel,
-    fontSize: 20,
+  stepNumberText: {
+    fontFamily: FONTS.mono,
+    fontSize: 14,
+    fontWeight: '700',
     color: COLORS.dark,
-    textAlign: 'center',
-    lineHeight: 36,
-    letterSpacing: 1,
   },
-  desc: {
+  stepNumberTextHighlight: {
+    color: '#fff',
+  },
+  stepInstruction: {
+    fontFamily: FONTS.mono,
     fontSize: 14,
     color: COLORS.dark,
-    textAlign: 'center',
-    lineHeight: 22,
-    opacity: 0.65,
-    maxWidth: 280,
+    opacity: 0.6,
   },
-  actions: {
-    width: '100%',
-    alignItems: 'center',
-    gap: 16,
+  iosBadge: {
+    backgroundColor: COLORS.dark,
+    borderRadius: 8,
+    paddingVertical: 5,
+    paddingHorizontal: 12,
   },
-  skipBtn: {
-    padding: 8,
+  iosBadgeText: {
+    fontFamily: FONTS.mono,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#fff',
+    letterSpacing: 0.2,
   },
-  skipText: {
-    fontSize: 12,
-    color: COLORS.muted,
-    textDecorationLine: 'underline',
+
+  // Bottom
+  bottom: {
+    ...LAYOUT.bottomContainer,
   },
-  grantedBadge: {
-    borderWidth: 2,
-    borderColor: COLORS.dark,
-    backgroundColor: COLORS.mint,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
+  actionBtn: {
+    ...LAYOUT.actionBtn,
   },
-  grantedText: {
-    fontFamily: FONTS.pixel,
-    fontSize: 10,
+  actionBtnLabel: {
+    fontFamily: FONTS.mono,
+    fontSize: 15,
     color: COLORS.dark,
-    lineHeight: 18,
+    letterSpacing: 0.2,
   },
 });

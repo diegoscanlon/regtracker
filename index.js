@@ -1,4 +1,5 @@
 import { registerRootComponent } from 'expo';
+import './lib/geofenceTask';
 
 import App from './App';
 

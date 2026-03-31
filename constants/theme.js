@@ -1,17 +1,69 @@
 export const COLORS = {
-  bg: '#FFF5F8',
+  bg: '#f4eac1',
   surface: '#FFFFFF',
-  primary: '#FF6BA8',
-  secondary: '#B8E0FF',
-  accent: '#FFE566',
-  mint: '#8EE6C0',
+  primary: '#f68324',
+  secondary: '#81c2ec',
+  accent: '#f9f961',
+  mint: '#c9e091',
   lavender: '#C8AAFF',
   peach: '#FFD4A8',
-  dark: '#1E1238',
+  dark: '#473536',
   muted: '#9980BB',
   error: '#FF4466',
+  green: '#c9e091',
+  offWhite: '#f4eac1',
+  orange: '#f68324',
+  blue: '#81c2ec',
+  yellow: '#f9f961',
+  brown: '#473536',
+};
+
+// Shared layout constants for onboarding screens
+export const LAYOUT = {
+  // Absolute-positioned title container — keeps titles at the same Y on every screen
+  titleContainer: {
+    position: 'absolute',
+    top: '18%',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  // Absolute-positioned bottom container — keeps buttons at the same Y on every screen
+  bottomContainer: {
+    position: 'absolute',
+    bottom: 50,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    gap: 14,
+    paddingHorizontal: 32,
+  },
+  // Standard onboarding action button
+  actionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: '#fff',
+    height: 50,
+    paddingHorizontal: 28,
+    borderRadius: 50,
+    width: 260,
+  },
+  actionBtnLabel: {
+    fontFamily: 'AvantGarde',
+    fontSize: 15,
+    color: '#1E1238',
+    letterSpacing: 0.2,
+  },
 };
 
 export const FONTS = {
-  pixel: 'PressStart2P_400Regular',
+  pixel: 'PressStart2P_400Regular',   // pixel headings
+  ghibli: 'MochiBoom',                 // titles / Reggy
+  ghibliBold: 'MochiBoomExtrude',     // bold/extrude titles
+  avant: 'AvantGarde',                // ITC Avant Garde Gothic LT Medium
+  mono: 'AvantGarde',                 // default body font
+  monoBold: 'AvantGarde',             // bold body font
 };

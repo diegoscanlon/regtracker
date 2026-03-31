@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { View, Text } from 'react-native';
+import { FONTS } from './constants/theme';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useFonts, PressStart2P_400Regular } from '@expo-google-fonts/press-start-2p';
+import { JetBrainsMono_400Regular, JetBrainsMono_700Bold } from '@expo-google-fonts/jetbrains-mono';
 import * as SecureStore from 'expo-secure-store';
 import { supabase } from './lib/supabase';
 
@@ -16,11 +18,25 @@ import Home from './screens/Home';
 
 const Stack = createNativeStackNavigator();
 
+// Apply JetBrains Mono as the default font for all Text components
+// (pixel font is applied explicitly on titles/headings)
+if (Text.defaultProps == null) Text.defaultProps = {};
+Text.defaultProps.style = { fontFamily: FONTS.mono };
+
 export default function App() {
   const [session, setSession] = useState(undefined); // undefined = loading
   const [onboardingDone, setOnboardingDone] = useState(false);
 
-  const [fontsLoaded] = useFonts({ PressStart2P_400Regular });
+  const [fontsLoaded] = useFonts({
+    PressStart2P_400Regular,
+    JetBrainsMono_400Regular,
+    JetBrainsMono_700Bold,
+    AvantGarde: require('./assets/fonts/itc-avant-garde-gothic-medium.otf'),
+    Ghibli: require('./assets/fonts/Eyad Al-Samman - Ghibli.otf'),
+    GhibliBold: require('./assets/fonts/Eyad Al-Samman - Ghibli-Bold.otf'),
+    MochiBoom: require('./assets/fonts/Mochi Boom.ttf'),
+    MochiBoomExtrude: require('./assets/fonts/Mochi Boom Extrude.ttf'),
+  });
 
   useEffect(() => {
     const init = async () => {

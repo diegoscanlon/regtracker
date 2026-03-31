@@ -1,19 +1,65 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, ActivityIndicator, SafeAreaView,
+  View, Text, StyleSheet,
+  SafeAreaView, TouchableOpacity, Dimensions,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+
+const { width, height } = Dimensions.get('window');
+
+function GrainOverlay({ opacity = 0.15 }) {
+  return (
+    <Svg
+      style={StyleSheet.absoluteFill}
+      width={width}
+      height={height}
+      pointerEvents="none"
+    >
+      <Defs>
+        <Filter id="grain" x="0%" y="0%" width="100%" height="100%">
+          <FeTurbulence
+            type="fractalNoise"
+            baseFrequency="0.65"
+            numOctaves="3"
+            stitchTiles="stitch"
+            result="noise"
+          />
+          <FeColorMatrix type="saturate" values="0" />
+        </Filter>
+      </Defs>
+      <Rect width={width} height={height} filter="url(#grain)" opacity={opacity} />
+    </Svg>
+  );
+}
+import { useVideoPlayer, VideoView } from 'expo-video';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
+import Svg, { Path, Defs, Filter, FeTurbulence, FeColorMatrix, Rect } from 'react-native-svg';
 import { supabase } from '../../lib/supabase';
-import PixelButton from '../../components/PixelButton';
-import { COLORS, FONTS } from '../../constants/theme';
+import { COLORS, FONTS, LAYOUT } from '../../constants/theme';
+import GargoyleLoader from '../../components/GargoyleLoader';
 
 WebBrowser.maybeCompleteAuthSession();
+
+function GoogleLogo({ size = 22 }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 48 48">
+      <Path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C12.955 4 4 12.955 4 24s8.955 20 20 20s20-8.955 20-20c0-1.341-.138-2.65-.389-3.917" />
+      <Path fill="#FF3D00" d="m6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691" />
+      <Path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.9 11.9 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44" />
+      <Path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002l6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917" />
+    </Svg>
+  );
+}
 
 export default function Welcome({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const player = useVideoPlayer(require('../../assets/bg.mp4'), p => {
+    p.loop = true;
+    p.muted = true;
+    p.play();
+  });
 
   const handleGoogleSignIn = async () => {
     try {
@@ -50,17 +96,17 @@ export default function Welcome({ navigation }) {
 
           if (!user?.email?.endsWith('@uchicago.edu')) {
             await supabase.auth.signOut();
-            setError('please use your\n@uchicago.edu account');
+            setError('UChicago accounts only');
             return;
           }
 
           navigation.navigate('Features');
         } else {
-          setError('sign in was cancelled');
+          setError('Sign in was cancelled');
         }
       }
     } catch (err) {
-      setError('sign in failed.\nplease try again.');
+      setError('Sign in failed. Please try again.');
       console.error(err);
     } finally {
       setLoading(false);
@@ -68,140 +114,121 @@ export default function Welcome({ navigation }) {
   };
 
   return (
-    <LinearGradient colors={['#FFD4E8', '#FFF5F8', '#E8D4FF']} style={styles.gradient}>
+    <View style={styles.root}>
+      <VideoView
+        player={player}
+        style={StyleSheet.absoluteFill}
+        contentFit="cover"
+        nativeControls={false}
+      />
+      <GrainOverlay />
+
       <SafeAreaView style={styles.safe}>
-        {/* Top decoration */}
-        <View style={styles.topDecor}>
-          <Text style={styles.decorChar}>✦</Text>
-          <Text style={styles.decorChar}>♡</Text>
-          <Text style={styles.decorChar}>✦</Text>
+        <View style={styles.header}>
+          <Text style={styles.title}>REGGY</Text>
+          <Text style={styles.subtitle}>Who is the biggest Reg Rat?</Text>
         </View>
 
-        {/* Logo */}
-        <View style={styles.logoArea}>
-          <View style={styles.logoBoxWrapper}>
-            <View style={styles.logoBoxShadow} />
-            <View style={styles.logoBox}>
-              <Text style={styles.logoEmoji}>📍</Text>
-            </View>
-          </View>
+        <View style={styles.center} />
 
-          <Text style={styles.title}>REGTRACKER</Text>
-          <Text style={styles.tagline}>who really owns the reg?</Text>
-        </View>
+        <View style={styles.bottom}>
+          {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        {/* Sign in */}
-        <View style={styles.signInArea}>
-          {error ? (
-            <Text style={styles.error}>{error}</Text>
-          ) : null}
+          <TouchableOpacity
+            style={styles.signInBtn}
+            onPress={handleGoogleSignIn}
+            activeOpacity={0.85}
+            disabled={loading}
+          >
+            {loading ? (
+              <>
+                <Text style={styles.signInLabel}>Signing in...</Text>
+                <GargoyleLoader size={42} />
+              </>
+            ) : (
+              <>
+                <GoogleLogo size={22} />
+                <Text style={styles.signInLabel}>Sign in with UChicago</Text>
+              </>
+            )}
+          </TouchableOpacity>
 
-          {loading ? (
-            <ActivityIndicator color={COLORS.dark} size="large" />
-          ) : (
-            <PixelButton
-              label="SIGN IN WITH GOOGLE"
-              icon="🌐"
-              onPress={handleGoogleSignIn}
-              color={COLORS.surface}
-            />
-          )}
-
-          <Text style={styles.hint}>@uchicago.edu accounts only</Text>
-        </View>
-
-        {/* Bottom decoration */}
-        <View style={styles.bottomDecor}>
-          <Text style={styles.decorChar}>★</Text>
-          <Text style={styles.decorChar}>♡</Text>
-          <Text style={styles.decorChar}>★</Text>
+          <Text style={styles.legal}>
+            By continuing, you agree to our{'\n'}
+            <Text style={styles.legalLink}>Terms of Service</Text>
+            {' '}and{' '}
+            <Text style={styles.legalLink}>Privacy Policy</Text>
+          </Text>
         </View>
       </SafeAreaView>
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  gradient: {
-    flex: 1,
-  },
+  root: { flex: 1 },
   safe: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 48,
-    paddingHorizontal: 32,
+    paddingBottom: 16,
+    paddingTop: 16,
   },
-  topDecor: {
-    flexDirection: 'row',
-    gap: 16,
-    marginTop: 8,
+  header: {
+    ...LAYOUT.titleContainer,
   },
-  decorChar: {
+  title: {
+    fontFamily: FONTS.ghibli,
+    fontSize: 78,
+    color: '#fff',
+    letterSpacing: 2,
+  },
+  subtitle: {
+    fontFamily: FONTS.ghibliBold,
     fontSize: 18,
-    color: COLORS.primary,
-    opacity: 0.7,
+    color: 'rgba(255,255,255,0.75)',
+    marginTop: 8,
+    letterSpacing: 0.5,
   },
-  logoArea: {
-    alignItems: 'center',
-    gap: 16,
-  },
-  logoBoxWrapper: {
-    position: 'relative',
-    width: 88,
-    height: 88,
-  },
-  logoBoxShadow: {
-    position: 'absolute',
-    top: 5,
-    left: 5,
-    width: 88,
-    height: 88,
-    backgroundColor: COLORS.dark,
-  },
-  logoBox: {
-    width: 88,
-    height: 88,
-    backgroundColor: COLORS.surface,
-    borderWidth: 2,
-    borderColor: COLORS.dark,
+  center: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logoEmoji: {
-    fontSize: 44,
+  bottom: {
+    ...LAYOUT.bottomContainer,
   },
-  title: {
-    fontFamily: FONTS.pixel,
-    fontSize: 18,
-    color: COLORS.dark,
-    letterSpacing: 2,
-    marginTop: 4,
+  signInBtn: {
+    ...LAYOUT.actionBtn,
+    overflow: 'hidden',
   },
-  tagline: {
-    fontSize: 13,
-    color: COLORS.muted,
-    fontStyle: 'italic',
-  },
-  signInArea: {
-    width: '100%',
+  iconSlot: {
+    width: 32,
+    height: 32,
     alignItems: 'center',
-    gap: 16,
+    justifyContent: 'center',
+  },
+  signInLabel: {
+    fontFamily: FONTS.mono,
+    fontSize: 15,
+    color: '#1E1238',
+    letterSpacing: 0.2,
+  },
+  legal: {
+    fontFamily: FONTS.mono,
+    fontSize: 10,
+    color: 'rgba(0,0,0,0.45)',
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  legalLink: {
+    textDecorationLine: 'underline',
+    color: '#1A7FD4',
   },
   error: {
-    fontFamily: FONTS.pixel,
-    fontSize: 9,
-    color: COLORS.error,
-    textAlign: 'center',
-    lineHeight: 18,
-  },
-  hint: {
+    fontFamily: FONTS.mono,
     fontSize: 11,
-    color: COLORS.muted,
-    marginTop: 4,
-  },
-  bottomDecor: {
-    flexDirection: 'row',
-    gap: 16,
+    color: '#FFD6D6',
+    textAlign: 'center',
   },
 });
