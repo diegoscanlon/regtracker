@@ -3,40 +3,13 @@ import {
   View, Text, StyleSheet,
   SafeAreaView, TouchableOpacity, Dimensions,
 } from 'react-native';
-
-const { width, height } = Dimensions.get('window');
-
-function GrainOverlay({ opacity = 0.15 }) {
-  return (
-    <Svg
-      style={StyleSheet.absoluteFill}
-      width={width}
-      height={height}
-      pointerEvents="none"
-    >
-      <Defs>
-        <Filter id="grain" x="0%" y="0%" width="100%" height="100%">
-          <FeTurbulence
-            type="fractalNoise"
-            baseFrequency="0.65"
-            numOctaves="3"
-            stitchTiles="stitch"
-            result="noise"
-          />
-          <FeColorMatrix type="saturate" values="0" />
-        </Filter>
-      </Defs>
-      <Rect width={width} height={height} filter="url(#grain)" opacity={opacity} />
-    </Svg>
-  );
-}
-import { useVideoPlayer, VideoView } from 'expo-video';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
-import Svg, { Path, Defs, Filter, FeTurbulence, FeColorMatrix, Rect } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import { supabase } from '../../lib/supabase';
 import { COLORS, FONTS, LAYOUT } from '../../constants/theme';
-import GargoyleLoader from '../../components/GargoyleLoader';
+
+const { height } = Dimensions.get('window');
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -54,12 +27,6 @@ function GoogleLogo({ size = 22 }) {
 export default function Welcome({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
-  const player = useVideoPlayer(require('../../assets/bg.mp4'), p => {
-    p.loop = true;
-    p.muted = true;
-    p.play();
-  });
 
   const handleGoogleSignIn = async () => {
     try {
@@ -115,14 +82,6 @@ export default function Welcome({ navigation }) {
 
   return (
     <View style={styles.root}>
-      <VideoView
-        player={player}
-        style={StyleSheet.absoluteFill}
-        contentFit="cover"
-        nativeControls={false}
-      />
-      <GrainOverlay />
-
       <SafeAreaView style={styles.safe}>
         <View style={styles.header}>
           <Text style={styles.title}>REGGY</Text>
@@ -156,7 +115,7 @@ export default function Welcome({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
+  root: { flex: 1, backgroundColor: COLORS.blue },
   safe: {
     flex: 1,
     alignItems: 'center',

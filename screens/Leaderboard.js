@@ -46,46 +46,64 @@ function AnimatedTab({ label, active, onPress }) {
   );
 }
 
-function ColumnHeaders() {
-  return (
-    <View style={styles.columnHeaders}>
-      <Text style={[styles.colHeaderText, styles.rankCol]}>Rank</Text>
-      <Text style={[styles.colHeaderText, styles.nameCol]}>Name</Text>
-      <Text style={[styles.colHeaderText, styles.durationCol]}>Time</Text>
-    </View>
-  );
-}
+const PODIUM_COLORS = {
+  1: '#FFD700',  // gold
+  2: '#C0C0C0',  // silver
+  3: '#CD7F32',  // bronze
+};
 
 function LeaderboardRow({ item, isMe, onPress }) {
   const name = item.display_name || item.email?.split('@')[0] || 'Anonymous';
   const isTop3 = item.rank <= 3;
+  const podiumBg = PODIUM_COLORS[item.rank];
+  const scale = useRef(new Animated.Value(1)).current;
 
-  const rankContent = isTop3
-    ? <Text style={styles.rankTop3}>{item.rank}</Text>
-    : <Text style={styles.rank}>{item.rank}</Text>;
+  const handlePress = () => {
+    if (onPress) onPress();
+    Animated.timing(scale, { toValue: 0.95, duration: 150, useNativeDriver: true }).start(() => {
+      scale.setValue(1);
+    });
+  };
 
   return (
-    <Pressable style={[styles.row, isMe && styles.rowMe]} onPress={onPress}>
-      <View style={styles.rankCol}>{rankContent}</View>
+    <Pressable onPress={handlePress}>
+      <Animated.View
+        style={[
+          styles.card,
+          isTop3 && { backgroundColor: podiumBg },
+          isMe && !isTop3 && styles.cardMe,
+          { transform: [{ scale }] },
+        ]}
+      >
+        <View style={styles.rankCol}>
+          {isTop3 ? (
+            <Text style={styles.rankTop3}>{item.rank}</Text>
+          ) : (
+            <Text style={styles.rank}>{item.rank}</Text>
+          )}
+        </View>
 
-      <View style={styles.nameCol}>
-        {item.avatar_url ? (
-          <Image source={{ uri: item.avatar_url }} style={styles.avatar} />
-        ) : (
-          <View style={styles.avatarPlaceholder}>
-            <Text style={styles.avatarInitial}>
-              {name.charAt(0).toUpperCase()}
+        <View style={styles.nameCol}>
+          {item.avatar_url ? (
+            <Image source={{ uri: item.avatar_url }} style={styles.avatar} />
+          ) : (
+            <View style={[styles.avatarPlaceholder, isTop3 && { backgroundColor: 'rgba(71,53,54,0.2)' }]}>
+              <Text style={styles.avatarInitial}>
+                {name.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          )}
+          <View style={styles.nameInfo}>
+            <Text style={[styles.name, isTop3 && styles.nameTop3]} numberOfLines={1}>
+              {name}{isMe ? ' (you)' : ''}
             </Text>
           </View>
-        )}
-        <Text style={styles.name} numberOfLines={1}>
-          {name}{isMe ? ' (you)' : ''}
-        </Text>
-      </View>
+        </View>
 
-      <Text style={[styles.hours, styles.durationCol]}>
-        {formatHours(item.total_seconds)}
-      </Text>
+        <Text style={[styles.hours, isTop3 && styles.hoursTop3]}>
+          {formatHours(item.total_seconds)}
+        </Text>
+      </Animated.View>
     </Pressable>
   );
 }
@@ -182,7 +200,6 @@ export default function Leaderboard({ navigation }) {
           data={data}
           keyExtractor={(item) => item.user_id}
           contentContainerStyle={styles.list}
-          ListHeaderComponent={ColumnHeaders}
           renderItem={({ item }) => (
             <LeaderboardRow
               item={item}
@@ -254,52 +271,29 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#fff',
     opacity: 0.5,
+    marginRight: 14,
   },
 
 
   // List
   list: {
     paddingHorizontal: 24,
-    paddingTop: 16,
+    paddingTop: 12,
     paddingBottom: 120,
+    gap: 10,
   },
 
-  // Column headers
-  columnHeaders: {
+  // Card row
+  card: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingBottom: 8,
-    marginBottom: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.25)',
-    gap: 8,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 14,
+    gap: 10,
   },
-  colHeaderText: {
-    fontFamily: FONTS.mono,
-    fontSize: 10,
-    color: 'rgba(255,255,255,0.5)',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  durationCol: {
-    width: 70,
-    textAlign: 'left',
-  },
-
-  // Row
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    gap: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
-  },
-  rowMe: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    marginHorizontal: -8,
-    paddingHorizontal: 8,
-    borderRadius: 8,
+  cardMe: {
+    backgroundColor: 'rgba(255,255,255,0.85)',
   },
   rankCol: {
     width: 32,
@@ -310,49 +304,55 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.mono,
     fontSize: 14,
     fontWeight: '700',
-    color: 'rgba(255,255,255,0.6)',
+    color: COLORS.brown,
+    opacity: 0.4,
     textAlign: 'center',
   },
   rankTop3: {
     fontFamily: FONTS.ghibli,
-    fontSize: 22,
-    color: '#fff',
+    fontSize: 24,
+    color: COLORS.brown,
     textAlign: 'center',
   },
   avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
   },
   avatarPlaceholder: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: COLORS.lavender,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarInitial: {
-    fontFamily: FONTS.mono,
-    fontSize: 14,
-    fontWeight: '700',
+    fontFamily: FONTS.ghibli,
+    fontSize: 18,
     color: '#fff',
   },
   nameCol: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
+  },
+  nameInfo: {
+    flex: 1,
   },
   name: {
-    fontFamily: FONTS.mono,
-    fontSize: 14,
-    color: '#fff',
+    fontFamily: FONTS.ghibli,
+    fontSize: 16,
+    color: COLORS.brown,
+  },
+  nameTop3: {
+    color: COLORS.brown,
   },
   hours: {
-    fontFamily: FONTS.mono,
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.5)',
+    fontFamily: FONTS.ghibli,
+    fontSize: 18,
+    color: COLORS.brown,
   },
   // Empty / loading
   center: {

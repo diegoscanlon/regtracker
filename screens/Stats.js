@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, TouchableOpacity,
-  Share, ScrollView, Image, Pressable, Animated,
+  Share, ScrollView, Image, Pressable, Animated, Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as SecureStore from 'expo-secure-store';
 import { COLORS, FONTS, LAYOUT } from '../constants/theme';
 import { supabase } from '../lib/supabase';
 import GargoyleLoader from '../components/GargoyleLoader';
@@ -26,7 +27,15 @@ function formatDurationFull(totalSeconds) {
 
 function formatDate(iso) {
   const d = new Date(iso);
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+  const sessionDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+  if (sessionDay.getTime() === today.getTime()) return 'Today';
+  if (sessionDay.getTime() === yesterday.getTime()) return 'Yesterday';
+  const dayName = d.toLocaleDateString('en-US', { weekday: 'long' });
+  return `${dayName}, ${d.getMonth() + 1}/${String(d.getDate()).padStart(2, '0')}`;
 }
 
 function formatTime(iso) {
@@ -163,16 +172,14 @@ const EXTRA_STATS = {
   topPercentUchicago: '—',
 };
 
-const TABS = ['Stats', 'Sessions', 'FAQ'];
+const TABS = ['Stats', 'Sessions', 'Settings'];
 
 const FAQ_ITEMS = [
   { q: 'What is Reggy?', a: 'Reggy tracks how much time you spend at the Regenstein Library so you can compete with friends and stay motivated.' },
   { q: 'How does tracking work?', a: 'Reggy uses your phone\'s location to detect when you enter and leave the Reg. Sessions under 10 minutes are not counted.' },
   { q: 'What counts as a session?', a: 'Any time you spend inside the Reg for at least 10 minutes. The timer starts when you enter and stops when you leave.' },
   { q: 'How are streaks calculated?', a: 'A streak counts consecutive days where you had at least one valid session (10+ minutes). Missing a day resets it.' },
-  { q: 'What are the floor options?', a: 'Lobby, floors 2–5, A level, B level, and Mansueto (Sueto). Pick your favorite from your profile!' },
-  { q: 'Who can see my stats?', a: 'Your friends can see your profile and stats. Your live status (in the Reg or not) is private — only you can see it.' },
-  { q: 'How do I add friends?', a: 'Go to the Friends tab and use Search to find people, or tap Add on suggested profiles in the Mine tab.' },
+  { q: 'Who can see my live activity?', a: 'Your live status (whether you\'re in the Reg right now) is visible to your friends on the activity feed. Your detailed stats are on your profile.' },
 ];
 
 const FLOOR_OPTIONS = ['—', 'Lobby', '2', '3', '4', '5', 'A', 'B', 'Sueto'];
@@ -316,24 +323,27 @@ export default function Stats({ navigation }) {
 
   const renderSessionsContent = () => (
     <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-      <View style={styles.columnHeaders}>
-        <Text style={[styles.colHeader, styles.colDate]}>Date</Text>
-        <Text style={[styles.colHeader, styles.colTime]}>Time</Text>
-        <Text style={[styles.colHeader, styles.colDuration]}>Duration</Text>
-      </View>
-
       {sessions.length === 0 ? (
         <View style={styles.emptyWrap}>
           <Text style={styles.emptyText}>No sessions yet — go hit the Reg!</Text>
         </View>
       ) : (
-        sessions.map((item) => (
-          <View key={item.id} style={styles.sessionRow}>
-            <Text style={[styles.sessionCell, styles.colDate]}>{formatDate(item.started_at)}</Text>
-            <Text style={[styles.sessionCell, styles.colTime]}>{formatTime(item.started_at)}</Text>
-            <Text style={[styles.sessionCell, styles.colDuration]}>{formatDuration(item.durationSeconds)}</Text>
+        <React.Fragment>
+          <View style={styles.sessionHeaderRow}>
+            <Text style={[styles.sessionHeaderText, { flex: 3 }]}>Date</Text>
+            <Text style={[styles.sessionHeaderText, { flex: 2 }]}>Time</Text>
+            <Text style={[styles.sessionHeaderText, { flex: 2, textAlign: 'right' }]}>Duration</Text>
           </View>
-        ))
+          {sessions.map((item) => (
+            <View key={item.id} style={styles.sessionCard}>
+              <View style={styles.sessionCardRow}>
+                <Text style={styles.sessionDate}>{formatDate(item.started_at)}</Text>
+                <Text style={styles.sessionTime}>{formatTime(item.started_at)}</Text>
+                <Text style={styles.sessionDuration}>{formatDuration(item.durationSeconds)}</Text>
+              </View>
+            </View>
+          ))}
+        </React.Fragment>
       )}
     </ScrollView>
   );
@@ -363,8 +373,34 @@ export default function Stats({ navigation }) {
         {/* Tab content */}
         {activeTab === 'Stats' && renderStatsContent()}
         {activeTab === 'Sessions' && renderSessionsContent()}
-        {activeTab === 'FAQ' && (
+        {activeTab === 'Settings' && (
           <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+            {/* Profile section */}
+            <Text style={styles.settingsSectionTitle}>Profile</Text>
+
+            <TouchableOpacity
+              style={styles.signOutBtn}
+              onPress={() => {
+                Alert.alert('Sign Out', 'This will sign you out and reset onboarding.', [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Sign Out',
+                    style: 'destructive',
+                    onPress: async () => {
+                      await SecureStore.deleteItemAsync('onboarding_complete');
+                      await supabase.auth.signOut();
+                    },
+                  },
+                ]);
+              }}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.signOutBtnText}>Sign Out</Text>
+            </TouchableOpacity>
+
+            {/* FAQ section */}
+            <Text style={[styles.settingsSectionTitle, { marginTop: 28 }]}>FAQ</Text>
+
             {FAQ_ITEMS.map((item, i) => (
               <View key={i} style={styles.faqCard}>
                 <Text style={styles.faqQuestion}>{item.q}</Text>
@@ -483,32 +519,43 @@ const styles = StyleSheet.create({
   },
 
   // Session history
-  columnHeaders: {
+  sessionHeaderRow: {
     flexDirection: 'row',
-    paddingBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.25)',
+    paddingHorizontal: 14,
+    marginBottom: 4,
   },
-  colHeader: {
-    fontFamily: FONTS.avant,
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.6)',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  colDate: { flex: 3 },
-  colTime: { flex: 2 },
-  colDuration: { flex: 2, textAlign: 'right' },
-  sessionRow: {
-    flexDirection: 'row',
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255,255,255,0.15)',
-  },
-  sessionCell: {
-    fontFamily: FONTS.avant,
+  sessionHeaderText: {
+    fontFamily: FONTS.ghibli,
     fontSize: 14,
     color: '#fff',
+  },
+  sessionCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 14,
+  },
+  sessionCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  sessionDate: {
+    flex: 3,
+    fontFamily: FONTS.ghibli,
+    fontSize: 14,
+    color: COLORS.brown,
+  },
+  sessionTime: {
+    flex: 2,
+    fontFamily: FONTS.ghibli,
+    fontSize: 14,
+    color: COLORS.brown,
+  },
+  sessionDuration: {
+    flex: 2,
+    fontFamily: FONTS.ghibli,
+    fontSize: 16,
+    color: COLORS.brown,
+    textAlign: 'right',
   },
   emptyWrap: {
     paddingVertical: 40,
@@ -520,6 +567,26 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.5)',
   },
 
+  // Settings
+  settingsSectionTitle: {
+    fontFamily: FONTS.mono,
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.5)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  signOutBtn: {
+    backgroundColor: '#E53935',
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+  },
+  signOutBtnText: {
+    fontFamily: FONTS.ghibli,
+    fontSize: 16,
+    color: '#fff',
+  },
   // FAQ
   faqCard: {
     backgroundColor: '#fff',

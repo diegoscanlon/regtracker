@@ -859,7 +859,7 @@ export default function Friends({ navigation }) {
     if (receivedReactions.length === 0) {
       return (
         <View style={styles.emptyWrap}>
-          <Text style={styles.emptyText}>No reactions yet</Text>
+          <Text style={styles.emptyText}>No one has reacted to you yet!</Text>
         </View>
       );
     }

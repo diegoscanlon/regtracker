@@ -7,22 +7,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
 import { COLORS, FONTS, LAYOUT } from '../../constants/theme';
 
-function StepBadge({ number, label, highlight }) {
-  return (
-    <View style={styles.stepRow}>
-      <View style={[styles.stepNumber, highlight && styles.stepNumberHighlight]}>
-        <Text style={[styles.stepNumberText, highlight && styles.stepNumberTextHighlight]}>
-          {number}
-        </Text>
-      </View>
-      <Text style={styles.stepInstruction}>Tap</Text>
-      <View style={styles.iosBadge}>
-        <Text style={styles.iosBadgeText}>{label}</Text>
-      </View>
-    </View>
-  );
-}
-
 export default function LocationScreen({ navigation }) {
   const [status, setStatus] = useState('idle'); // 'idle' | 'granted' | 'needsAlways'
 
@@ -59,11 +43,11 @@ export default function LocationScreen({ navigation }) {
   // ── "Needs Always" fallback ──────────────────────────────────────────────
   if (status === 'needsAlways') {
     return (
-      <LinearGradient colors={['#FFE8E8', '#FFF5F5', '#FFE8E8']} style={styles.gradient}>
+      <View style={styles.container}>
         <SafeAreaView style={styles.safe}>
-          <View style={styles.centerContent}>
+          <View style={styles.stepsArea}>
             <Text style={styles.emoji}>📍</Text>
-            <Text style={styles.title}>One more thing</Text>
+            <Text style={styles.subtitle}>One more thing</Text>
             <Text style={styles.body}>
               Reggy needs location set to{' '}
               <Text style={styles.bold}>"Always"</Text>
@@ -75,159 +59,127 @@ export default function LocationScreen({ navigation }) {
 
           <View style={styles.bottom}>
             <TouchableOpacity
-              style={styles.actionBtn}
+              style={styles.continueBtn}
               onPress={() => Linking.openSettings()}
               activeOpacity={0.85}
             >
-              <Text style={styles.actionBtnLabel}>Open Settings</Text>
+              <Text style={styles.continueBtnLabel}>Open Settings</Text>
             </TouchableOpacity>
           </View>
         </SafeAreaView>
-      </LinearGradient>
+      </View>
     );
   }
 
   // ── "Granted" brief flash ────────────────────────────────────────────────
   if (status === 'granted') {
     return (
-      <LinearGradient colors={['#D4FFE8', '#E8FFF0', '#D4FFE8']} style={styles.gradient}>
+      <View style={styles.container}>
         <SafeAreaView style={styles.safe}>
-          <View style={styles.centerContent}>
+          <View style={styles.stepsArea}>
             <Text style={styles.emoji}>✓</Text>
-            <Text style={styles.title}>You're all set</Text>
+            <Text style={styles.subtitle}>You're all set</Text>
           </View>
         </SafeAreaView>
-      </LinearGradient>
+      </View>
     );
   }
 
   // ── Main screen ──────────────────────────────────────────────────────────
   return (
-    <LinearGradient colors={['#D4FFE8', '#FFF5F8', '#D4E8FF']} style={styles.gradient}>
+    <View style={styles.container}>
       <SafeAreaView style={styles.safe}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Enable Location{'\n'}in 2 Steps</Text>
-        </View>
-
         <View style={styles.stepsArea}>
-          <StepBadge number="1" label="Allow While Using App" highlight />
-          <StepBadge number="2" label="Change to Always Allow" highlight />
+          <View style={styles.card}>
+            <View style={styles.stepRow}>
+              <View style={styles.stepNumber}>
+                <Text style={styles.stepNumberText}>1</Text>
+              </View>
+              <Text style={styles.stepInstruction}>Tap</Text>
+              <View style={styles.iosBadge}>
+                <Text style={styles.iosBadgeText}>Allow While Using App</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.card}>
+            <View style={styles.stepRow}>
+              <View style={styles.stepNumber}>
+                <Text style={styles.stepNumberText}>2</Text>
+              </View>
+              <Text style={styles.stepInstruction}>Tap</Text>
+              <View style={styles.iosBadge}>
+                <Text style={styles.iosBadgeText}>Change to Always Allow</Text>
+              </View>
+            </View>
+          </View>
 
           <Text style={styles.warning}>Otherwise Reggy won't work!</Text>
         </View>
 
         <View style={styles.bottom}>
           <TouchableOpacity
-            style={styles.actionBtn}
+            style={styles.continueBtn}
             onPress={handleAllow}
             activeOpacity={0.85}
           >
-            <Text style={styles.actionBtnLabel}>Enable Location</Text>
+            <Text style={styles.continueBtnLabel}>Enable Location</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  gradient: { flex: 1 },
+  container: { flex: 1, backgroundColor: COLORS.blue },
   safe: {
     flex: 1,
-  },
-  header: {
-    ...LAYOUT.titleContainer,
+    paddingHorizontal: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingBottom: '20%',
   },
   stepsArea: {
-    flex: 1,
+    alignItems: 'center',
+    gap: 16,
+    width: '90%',
+  },
+  card: {
+    width: '100%',
+    borderRadius: 20,
+    backgroundColor: '#fff',
+    paddingVertical: 20,
+    paddingHorizontal: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 36,
-    gap: 14,
-  },
-  warning: {
-    fontFamily: FONTS.mono,
-    fontSize: 14,
-    color: COLORS.dark,
-    opacity: 0.55,
-    textAlign: 'center',
-    marginTop: 8,
-    fontStyle: 'italic',
-  },
-  emoji: {
-    fontSize: 44,
-    marginBottom: 4,
-  },
-  title: {
-    fontFamily: FONTS.ghibli,
-    fontSize: 34,
-    color: COLORS.dark,
-    textAlign: 'center',
-    lineHeight: 44,
-  },
-  body: {
-    fontFamily: FONTS.mono,
-    fontSize: 15,
-    color: COLORS.dark,
-    textAlign: 'center',
-    lineHeight: 24,
-    opacity: 0.75,
-  },
-  bold: {
-    fontWeight: '700',
-    opacity: 1,
-  },
-
-  // Steps
-  steps: {
-    width: '100%',
-    gap: 14,
-    marginTop: 12,
-  },
-  stepsLabel: {
-    fontFamily: FONTS.mono,
-    fontSize: 12,
-    color: COLORS.dark,
-    opacity: 0.45,
-    textAlign: 'center',
-    marginBottom: 4,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
   },
   stepRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     gap: 10,
   },
   stepNumber: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(30,18,56,0.08)',
+    backgroundColor: COLORS.brown,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  stepNumberHighlight: {
-    backgroundColor: COLORS.dark,
-  },
   stepNumberText: {
-    fontFamily: FONTS.mono,
-    fontSize: 14,
+    fontFamily: FONTS.ghibli,
+    fontSize: 18,
     fontWeight: '700',
-    color: COLORS.dark,
-  },
-  stepNumberTextHighlight: {
     color: '#fff',
   },
   stepInstruction: {
-    fontFamily: FONTS.mono,
-    fontSize: 14,
-    color: COLORS.dark,
-    opacity: 0.6,
+    fontFamily: FONTS.ghibli,
+    fontSize: 16,
+    color: COLORS.brown,
   },
   iosBadge: {
-    backgroundColor: COLORS.dark,
+    backgroundColor: COLORS.brown,
     borderRadius: 8,
     paddingVertical: 5,
     paddingHorizontal: 12,
@@ -239,18 +191,47 @@ const styles = StyleSheet.create({
     color: '#fff',
     letterSpacing: 0.2,
   },
-
-  // Bottom
+  warning: {
+    fontFamily: FONTS.ghibli,
+    fontSize: 14,
+    color: '#fff',
+    opacity: 0.7,
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  emoji: {
+    fontSize: 44,
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontFamily: FONTS.ghibli,
+    fontSize: 34,
+    color: '#fff',
+    textAlign: 'center',
+    lineHeight: 44,
+  },
+  body: {
+    fontFamily: FONTS.mono,
+    fontSize: 15,
+    color: '#fff',
+    textAlign: 'center',
+    lineHeight: 24,
+    opacity: 0.8,
+  },
+  bold: {
+    fontWeight: '700',
+    opacity: 1,
+  },
   bottom: {
     ...LAYOUT.bottomContainer,
   },
-  actionBtn: {
+  continueBtn: {
     ...LAYOUT.actionBtn,
+    backgroundColor: '#fff',
   },
-  actionBtnLabel: {
-    fontFamily: FONTS.mono,
-    fontSize: 15,
-    color: COLORS.dark,
-    letterSpacing: 0.2,
+  continueBtnLabel: {
+    fontFamily: FONTS.ghibli,
+    fontSize: 18,
+    color: COLORS.brown,
   },
 });
