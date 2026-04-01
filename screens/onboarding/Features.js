@@ -117,8 +117,7 @@ export default function Features({ navigation }) {
   useEffect(() => {
     if (!showButton) return;
     let cardIndex = 0;
-    // First shake after 3s, then each subsequent card 450ms apart,
-    // then 3s pause before restarting from card 0
+    let firstRun = true;
     const tick = () => {
       shakeCard(cardIndex);
       cardIndex++;
@@ -129,7 +128,7 @@ export default function Features({ navigation }) {
         timerId = setTimeout(tick, 3000);
       }
     };
-    let timerId = setTimeout(tick, 3000);
+    let timerId = setTimeout(tick, 0);
     return () => clearTimeout(timerId);
   }, [showButton, shakeCard]);
 

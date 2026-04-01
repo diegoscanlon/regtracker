@@ -85,6 +85,7 @@ export default function Welcome({ navigation }) {
       <SafeAreaView style={styles.safe}>
         <View style={styles.header}>
           <Text style={styles.title}>REGGY</Text>
+          <Text style={styles.subtitle}>Do you even grind, bro?</Text>
         </View>
 
         <View style={styles.bottom}>
@@ -133,6 +134,13 @@ const styles = StyleSheet.create({
     fontSize: 94,
     color: '#fff',
     letterSpacing: 2,
+  },
+  subtitle: {
+    fontFamily: FONTS.ghibli,
+    fontSize: 18,
+    color: '#fff',
+    opacity: 0.8,
+    marginTop: 4,
   },
   bottom: {
     ...LAYOUT.bottomContainer,
