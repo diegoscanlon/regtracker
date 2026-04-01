@@ -25,7 +25,7 @@ export default function GargoyleLoader({ size = 64 }) {
 
   return (
     <Animated.Image
-      source={require('../assets/gargoyle-loader.png')}
+      source={require('../assets/loading-icon.png')}
       style={[styles.img, { width: size, height: size, transform: [{ scale }] }]}
     />
   );

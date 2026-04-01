@@ -19,6 +19,12 @@ function formatDuration(totalSeconds) {
   return `${m}m`;
 }
 
+function formatDurationFull(totalSeconds) {
+  const h = Math.floor((totalSeconds || 0) / 3600);
+  const m = Math.floor(((totalSeconds || 0) % 3600) / 60);
+  return `${h}h\n${String(m).padStart(2, '0')}m`;
+}
+
 function formatDate(iso) {
   const d = new Date(iso);
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -45,6 +51,7 @@ function useSessionData() {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
@@ -53,7 +60,7 @@ function useSessionData() {
     const [profileRes, sessionsRes] = await Promise.all([
       supabase
         .from('profiles')
-        .select('display_name, email, avatar_url')
+        .select('display_name, email, avatar_url, favorite_floor')
         .eq('id', user.id)
         .single(),
       supabase
@@ -63,6 +70,7 @@ function useSessionData() {
         .not('ended_at', 'is', null)
         .order('started_at', { ascending: false }),
     ]);
+
 
     if (profileRes.data) setProfile(profileRes.data);
 
@@ -82,6 +90,11 @@ function useSessionData() {
       .filter((s) => new Date(s.started_at) >= weekStart)
       .reduce((sum, s) => sum + s.durationSeconds, 0);
     const allTime = valid.reduce((sum, s) => sum + s.durationSeconds, 0);
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const today = valid
+      .filter((s) => new Date(s.started_at) >= todayStart)
+      .reduce((sum, s) => sum + s.durationSeconds, 0);
 
     // Daily streak
     const sessionDays = new Set(
@@ -107,19 +120,35 @@ function useSessionData() {
       }
     }
 
+    // Peak hours: mean midpoint time-of-day across all sessions
+    let peakHours = '—';
+    if (valid.length > 0) {
+      let totalMinutes = 0;
+      for (const s of valid) {
+        const start = new Date(s.started_at);
+        const end = new Date(s.ended_at);
+        const midpoint = new Date((start.getTime() + end.getTime()) / 2);
+        totalMinutes += midpoint.getHours() * 60 + midpoint.getMinutes();
+      }
+      const avgMinutes = Math.round(totalMinutes / valid.length);
+      const h = Math.floor(avgMinutes / 60);
+      const m = avgMinutes % 60;
+      const period = h >= 12 ? 'PM' : 'AM';
+      const displayH = h === 0 ? 12 : h > 12 ? h - 12 : h;
+      peakHours = `${displayH}:${String(m).padStart(2, '0')} ${period}`;
+    }
+
     // Fetch weekly ranks
     const { data: rankData } = await supabase.rpc('get_weekly_ranks');
     let friendRank = '—';
     let topPercentUchicago = '—';
     if (rankData && rankData.length > 0) {
       const r = rankData[0];
-      if (r.friend_rank > 0) friendRank = `#${r.friend_rank} of ${r.friend_total}`;
-      if (r.uchicago_rank > 0 && r.uchicago_total > 0) {
-        topPercentUchicago = `Top ${Math.round((r.uchicago_rank / r.uchicago_total) * 100)}%`;
-      }
+      if (r.friend_rank > 0) friendRank = `#${r.friend_rank}`;
+      if (r.uchicago_rank > 0) topPercentUchicago = `#${r.uchicago_rank}`;
     }
 
-    setStats({ lastSession: formatDuration(lastSession), thisWeek: formatDuration(thisWeek), allTime: formatDuration(allTime), streak, friendRank, topPercentUchicago });
+    setStats({ lastSession: formatDuration(lastSession), thisWeek: formatDurationFull(thisWeek), allTime: formatDurationFull(allTime), today: formatDurationFull(today), streak, friendRank, topPercentUchicago, peakHours });
     setLoading(false);
   }, []);
 
@@ -128,27 +157,49 @@ function useSessionData() {
 }
 
 const EXTRA_STATS = {
+  today: '0h\n00m',
   favoriteFloor: '—',
   peakHours: '—',
   friendRank: '—',
   topPercentUchicago: '—',
 };
 
-const TABS = ['My Stats', 'My Friends', 'My Sessions'];
+const TABS = ['Stats', 'Friends', 'Sessions'];
 
-function StatCard({ label, value, tall }) {
+const FLOOR_OPTIONS = ['—', 'Lobby', '2', '3', '4', '5', 'A', 'B', 'Sueto'];
+
+function FloorPickerCard({ value, onChangeFloor }) {
+  const scale = useRef(new Animated.Value(1)).current;
+  const currentIndex = FLOOR_OPTIONS.indexOf(value) >= 0 ? FLOOR_OPTIONS.indexOf(value) : 0;
+
+  const handlePress = () => {
+    const nextIndex = (currentIndex + 1) % FLOOR_OPTIONS.length;
+    const nextFloor = FLOOR_OPTIONS[nextIndex];
+
+    // Shrink then pop back
+    Animated.sequence([
+      Animated.timing(scale, { toValue: 0.92, duration: 80, useNativeDriver: true }),
+      Animated.spring(scale, { toValue: 1, friction: 4, tension: 200, useNativeDriver: true }),
+    ]).start();
+
+    onChangeFloor(nextFloor);
+  };
+
   return (
-    <View style={[styles.statCard, tall && styles.statCardTall]}>
-      <Text style={styles.statLabel}>{label}</Text>
-      <Text style={[styles.statValue, tall && styles.statValueTall]}>{value}</Text>
-    </View>
+    <Pressable onPress={handlePress} style={{ flex: 1 }}>
+      <Animated.View style={[styles.statCard, { transform: [{ scale }] }]}>
+        <Text style={styles.statLabel}>Favorite Floor</Text>
+        <Text style={styles.statValue}>{value}</Text>
+      </Animated.View>
+    </Pressable>
   );
 }
 
-function BadgePill({ text, color, textColor = '#fff' }) {
+function StatCard({ label, value, tall, bgColor, textColor, flex, paddingV }) {
   return (
-    <View style={[styles.pill, { backgroundColor: color }]}>
-      <Text style={[styles.pillText, { color: textColor }]}>{text}</Text>
+    <View style={[styles.statCard, tall && styles.statCardTall, bgColor && { backgroundColor: bgColor }, flex != null && { flex }, paddingV != null && { paddingVertical: paddingV }]}>
+      <Text style={[styles.statLabel, textColor && { color: textColor, opacity: 0.8 }]}>{label}</Text>
+      <Text style={[styles.statValue, tall && styles.statValueTall, textColor && { color: textColor }]}>{value}</Text>
     </View>
   );
 }
@@ -179,10 +230,24 @@ function AnimatedTab({ label, active, onPress }) {
 
 export default function Stats({ navigation }) {
   const { stats, sessions, profile, loading } = useSessionData();
-  const [activeTab, setActiveTab] = useState('My Stats');
+  const [activeTab, setActiveTab] = useState('Stats');
+  const [favoriteFloor, setFavoriteFloor] = useState('—');
   const s = { ...EXTRA_STATS, ...stats };
 
   const displayName = profile?.display_name || profile?.email?.split('@')[0] || 'You';
+
+  // Sync favorite floor from profile
+  useEffect(() => {
+    if (profile?.favorite_floor) setFavoriteFloor(profile.favorite_floor);
+  }, [profile]);
+
+  const handleChangeFloor = async (floor) => {
+    setFavoriteFloor(floor);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const dbValue = floor === '—' ? null : floor;
+    await supabase.from('profiles').update({ favorite_floor: dbValue }).eq('id', user.id);
+  };
 
   const handleShare = async () => {
     try {
@@ -211,30 +276,31 @@ export default function Stats({ navigation }) {
 
   const renderStatsContent = () => (
     <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-      {/* Rank pills */}
-      <View style={styles.pillRow}>
-        <BadgePill text={`${s.friendRank} among friends`} color={COLORS.orange} />
-        <BadgePill text={`${s.topPercentUchicago} at UChicago`} color={COLORS.yellow} textColor={COLORS.brown} />
+      {/* Rank cards */}
+      <View style={styles.statsRow}>
+        <StatCard label="Among Friends" value={s.friendRank} bgColor={COLORS.orange} textColor="#fff" paddingV={20} />
+        <StatCard label="At UChicago" value={s.topPercentUchicago} bgColor={COLORS.yellow} textColor={COLORS.brown} paddingV={20} />
       </View>
 
       <View style={styles.statsRow}>
-        <StatCard label="This Week" value={s.thisWeek} tall={false} />
-        <StatCard label="All Time" value={s.allTime} tall={false} />
+        <StatCard label="Today" value={s.today} tall={false} paddingV={24} />
+        <StatCard label="This Week" value={s.thisWeek} tall={false} paddingV={24} />
+        <StatCard label="All Time" value={s.allTime} tall={false} paddingV={24} />
       </View>
 
       <View style={styles.statsRow}>
-        <StatCard label="Daily Streak" value={`${s.streak}`} tall />
-        <StatCard label="Last Session" value={s.lastSession} tall />
+        <StatCard label="Last Session" value={s.lastSession} flex={1.4} />
+        <StatCard label="Streak" value={`${s.streak}`} flex={0.6} />
       </View>
 
       <View style={styles.statsRow}>
-        <StatCard label="Favorite Floor" value={s.favoriteFloor} tall={false} />
+        <FloorPickerCard value={favoriteFloor} onChangeFloor={handleChangeFloor} />
         <StatCard label="Peak Hours" value={s.peakHours} tall={false} />
       </View>
 
       <TouchableOpacity style={styles.shareBtn} onPress={handleShare} activeOpacity={0.85}>
-        <Text style={styles.shareBtnIcon}>📤</Text>
-        <Text style={styles.shareBtnText}>Share My Stats</Text>
+        <Image source={require('../assets/phoenix-icon.png')} style={styles.shareBtnIcon} />
+        <Text style={styles.shareBtnText}>Share Stats</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -286,9 +352,9 @@ export default function Stats({ navigation }) {
         </View>
 
         {/* Tab content */}
-        {activeTab === 'My Stats' && renderStatsContent()}
-        {activeTab === 'My Friends' && <FriendsTab />}
-        {activeTab === 'My Sessions' && renderSessionsContent()}
+        {activeTab === 'Stats' && renderStatsContent()}
+        {activeTab === 'Friends' && <FriendsTab />}
+        {activeTab === 'Sessions' && renderSessionsContent()}
       </SafeAreaView>
     </LinearGradient>
   );
@@ -331,10 +397,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     paddingVertical: 12,
     paddingHorizontal: 24,
-    borderRadius: 50,
+    borderRadius: 16,
   },
   shareBtnIcon: {
-    fontSize: 16,
+    width: 30,
+    height: 30,
+    resizeMode: 'contain',
   },
   shareBtnText: {
     fontFamily: FONTS.mono,
@@ -358,26 +426,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  // Pills
-  pillRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 10,
-    flexWrap: 'wrap',
-  },
-  pill: {
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    borderRadius: 50,
-  },
-  pillText: {
-    fontFamily: FONTS.mono,
-    fontSize: 12,
-    color: '#fff',
-    fontWeight: '600',
-    letterSpacing: 0.3,
-  },
-
   // Stat cards
   statsRow: {
     flexDirection: 'row',
@@ -395,11 +443,11 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   statCardTall: {
-    paddingVertical: 44,
+    paddingVertical: 40,
   },
   statLabel: {
     fontFamily: FONTS.mono,
-    fontSize: 10,
+    fontSize: 12.5,
     color: COLORS.brown,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -407,11 +455,11 @@ const styles = StyleSheet.create({
   },
   statValue: {
     fontFamily: FONTS.ghibli,
-    fontSize: 20,
+    fontSize: 25,
     color: COLORS.brown,
   },
   statValueTall: {
-    fontSize: 28,
+    fontSize: 35,
   },
 
   // Session history

@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Image, Animated } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { COLORS, FONTS } from '../constants/theme';
 
@@ -8,14 +8,16 @@ const TAB_HEIGHT = 70;
 const CURVE = 20;
 
 const TAB_ICONS = {
-  Profile: '👤',
-  Leaderboard: '🏆',
-  Friends: '👥',
   Admin: '⚙️',
 };
 
+const TAB_IMAGES = {
+  Profile: require('../assets/tab-stats.png'),
+  Leaderboard: require('../assets/tab-leaderboard.png'),
+  Friends: require('../assets/tab-friends.png'),
+};
+
 function TabBarBackground() {
-  // Curved top edge — a smooth wave across the full width
   const w = width;
   const h = TAB_HEIGHT + CURVE + 40;
   return (
@@ -35,15 +37,49 @@ function TabBarBackground() {
   );
 }
 
+function AnimatedTab({ route, isFocused, onPress }) {
+  const anim = useRef(new Animated.Value(isFocused ? 1 : 0)).current;
+
+  useEffect(() => {
+    Animated.spring(anim, {
+      toValue: isFocused ? 1 : 0,
+      useNativeDriver: true,
+      friction: 7,
+      tension: 100,
+    }).start();
+  }, [isFocused]);
+
+  const scale = anim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.25] });
+  const icon = TAB_ICONS[route.name] || '•';
+  const tabImage = TAB_IMAGES[route.name];
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      style={styles.tab}
+      activeOpacity={0.7}
+    >
+      <Animated.View style={[styles.iconCircle, { transform: [{ scale }] }]}>
+        {tabImage ? (
+          <Image source={tabImage} style={[styles.tabImage, route.name === 'Leaderboard' && styles.tabImageLeaderboard, route.name === 'Profile' && styles.tabImageProfile]} />
+        ) : (
+          <Text style={styles.icon}>{icon}</Text>
+        )}
+      </Animated.View>
+      <Animated.Text style={[styles.label, isFocused && styles.labelActive, { transform: [{ scale }] }]}>
+        {route.name}
+      </Animated.Text>
+    </TouchableOpacity>
+  );
+}
+
 export default function CustomTabBar({ state, descriptors, navigation }) {
   return (
     <View style={styles.wrapper}>
       <TabBarBackground />
       <View style={styles.tabs}>
         {state.routes.map((route, index) => {
-          const { options } = descriptors[route.key];
           const isFocused = state.index === index;
-          const icon = TAB_ICONS[route.name] || '•';
 
           const onPress = () => {
             const event = navigation.emit({
@@ -57,19 +93,12 @@ export default function CustomTabBar({ state, descriptors, navigation }) {
           };
 
           return (
-            <TouchableOpacity
+            <AnimatedTab
               key={route.key}
+              route={route}
+              isFocused={isFocused}
               onPress={onPress}
-              style={styles.tab}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.iconCircle, isFocused && styles.iconCircleActive]}>
-                <Text style={styles.icon}>{icon}</Text>
-              </View>
-              <Text style={[styles.label, isFocused && styles.labelActive]}>
-                {route.name}
-              </Text>
-            </TouchableOpacity>
+            />
           );
         })}
       </View>
@@ -99,7 +128,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    paddingTop: CURVE + 4,
+    paddingTop: CURVE + 16,
     paddingHorizontal: 8,
   },
   tab: {
@@ -115,11 +144,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'transparent',
   },
-  iconCircleActive: {
-    backgroundColor: 'rgba(71,53,54,0.1)',
-  },
   icon: {
-    fontSize: 22,
+    fontSize: 35,
+  },
+  tabImage: {
+    width: 48,
+    height: 48,
+    resizeMode: 'contain',
+  },
+  tabImageLeaderboard: {
+    width: 60,
+    height: 60,
+  },
+  tabImageProfile: {
+    width: 60,
+    height: 60,
   },
   label: {
     fontFamily: FONTS.mono,

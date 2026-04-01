@@ -54,21 +54,20 @@ function ColumnHeaders() {
       <Text style={[styles.colHeaderText, styles.rankCol]}>Rank</Text>
       <Text style={[styles.colHeaderText, styles.nameCol]}>Name</Text>
       <Text style={[styles.colHeaderText, styles.durationCol]}>Time</Text>
-      <View style={styles.actionSpacer} />
     </View>
   );
 }
 
-function LeaderboardRow({ item, isMe, activeTab }) {
+function LeaderboardRow({ item, isMe, onPress }) {
   const name = item.display_name || item.email?.split('@')[0] || 'Anonymous';
   const isTop3 = item.rank <= 3;
 
   const rankContent = isTop3
-    ? <View style={styles.rankIcon}><Text style={styles.rankIconText}>{['🥇', '🥈', '🥉'][item.rank - 1]}</Text></View>
+    ? <Text style={styles.rankTop3}>{item.rank}</Text>
     : <Text style={styles.rank}>{item.rank}</Text>;
 
   return (
-    <View style={[styles.row, isMe && styles.rowMe]}>
+    <Pressable style={[styles.row, isMe && styles.rowMe]} onPress={onPress}>
       <View style={styles.rankCol}>{rankContent}</View>
 
       <View style={styles.nameCol}>
@@ -89,24 +88,11 @@ function LeaderboardRow({ item, isMe, activeTab }) {
       <Text style={[styles.hours, styles.durationCol]}>
         {formatHours(item.total_seconds)}
       </Text>
-
-      {!isMe ? (
-        <Pressable style={styles.actionBtn} onPress={() => {}}>
-          <Text style={styles.actionText}>
-            {activeTab === 'friends' ? 'Poke' : 'Add'}
-          </Text>
-          <Text style={styles.actionIcon}>
-            {activeTab === 'friends' ? '👈' : '➕'}
-          </Text>
-        </Pressable>
-      ) : (
-        <View style={styles.actionSpacer} />
-      )}
-    </View>
+    </Pressable>
   );
 }
 
-export default function Leaderboard() {
+export default function Leaderboard({ navigation }) {
   const [activeTab, setActiveTab] = useState('all');
   const [timeRange, setTimeRange] = useState('week'); // 'week' | 'alltime'
   const [data, setData] = useState([]);
@@ -203,7 +189,18 @@ export default function Leaderboard() {
             <LeaderboardRow
               item={item}
               isMe={item.user_id === currentUserId}
-              activeTab={activeTab}
+              onPress={() => {
+                if (item.user_id !== currentUserId) {
+                  navigation.navigate('FriendProfile', {
+                    friend: {
+                      id: item.user_id,
+                      display_name: item.display_name,
+                      email: item.email,
+                      avatar_url: item.avatar_url,
+                    },
+                  });
+                }
+              }}
             />
           )}
         />
@@ -289,9 +286,6 @@ const styles = StyleSheet.create({
     width: 70,
     textAlign: 'left',
   },
-  actionSpacer: {
-    width: 60,
-  },
 
   // Row
   row: {
@@ -320,14 +314,11 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.6)',
     textAlign: 'center',
   },
-  rankIcon: {
-    width: 28,
-    height: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  rankIconText: {
+  rankTop3: {
+    fontFamily: FONTS.ghibli,
     fontSize: 22,
+    color: '#fff',
+    textAlign: 'center',
   },
   avatar: {
     width: 36,
@@ -364,23 +355,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: 'rgba(255,255,255,0.5)',
   },
-  actionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    width: 60,
-  },
-  actionText: {
-    fontFamily: FONTS.mono,
-    fontSize: 12,
-    color: '#fff',
-    textDecorationLine: 'underline',
-  },
-  actionIcon: {
-    fontSize: 14,
-  },
-
   // Empty / loading
   center: {
     flex: 1,

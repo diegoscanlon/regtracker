@@ -1,8 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, Pressable, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import MapView, { Polygon, Circle } from 'react-native-maps';
+import * as SecureStore from 'expo-secure-store';
 import useGeofence from '../lib/useGeofence';
+import { supabase } from '../lib/supabase';
 import { COLORS, FONTS } from '../constants/theme';
 import { REG_CENTER, REG_RADIUS, REG_POLYGON } from '../constants/geofence';
 
@@ -14,7 +16,21 @@ function formatTime(totalSeconds) {
 }
 
 export default function Admin() {
-  const { userLocation, isInReg, elapsedSeconds } = useGeofence();
+  const { userLocation, isInReg, elapsedSeconds, devToggle } = useGeofence();
+
+  const handleSignOut = () => {
+    Alert.alert('Sign Out', 'This will sign you out and reset onboarding.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign Out',
+        style: 'destructive',
+        onPress: async () => {
+          await SecureStore.deleteItemAsync('onboarding_complete');
+          await supabase.auth.signOut();
+        },
+      },
+    ]);
+  };
 
   return (
     <LinearGradient colors={['#FFF5F8', '#F0F8FF']} style={styles.container}>
@@ -33,6 +49,17 @@ export default function Admin() {
         <Text style={styles.timerLabel}>
           {isInReg ? 'current session' : 'start grinding!'}
         </Text>
+
+        {/* Dev toggle */}
+        <Pressable style={[styles.toggleBtn, isInReg ? styles.toggleBtnActive : null]} onPress={devToggle}>
+          <Text style={styles.toggleBtnText}>
+            {isInReg ? 'Leave the Reg' : 'Enter the Reg'}
+          </Text>
+        </Pressable>
+
+        <Pressable style={styles.signOutBtn} onPress={handleSignOut}>
+          <Text style={styles.signOutText}>Sign Out</Text>
+        </Pressable>
 
         {/* Map */}
         <View style={styles.mapWrapper}>
@@ -62,8 +89,8 @@ export default function Admin() {
             />
           </MapView>
         </View>
-
       </SafeAreaView>
+
     </LinearGradient>
   );
 }
@@ -148,4 +175,35 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
 
+  // Dev toggle button
+  toggleBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+    borderRadius: 50,
+    borderWidth: 2,
+    borderColor: COLORS.dark,
+    backgroundColor: '#fff',
+  },
+  toggleBtnActive: {
+    backgroundColor: COLORS.error,
+    borderColor: COLORS.error,
+  },
+  toggleBtnText: {
+    fontFamily: FONTS.mono,
+    fontSize: 13,
+    color: COLORS.dark,
+    fontWeight: '700',
+  },
+  signOutBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+    borderRadius: 50,
+    backgroundColor: COLORS.error,
+  },
+  signOutText: {
+    fontFamily: FONTS.mono,
+    fontSize: 13,
+    color: '#fff',
+    fontWeight: '700',
+  },
 });
