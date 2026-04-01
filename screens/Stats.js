@@ -7,7 +7,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, FONTS, LAYOUT } from '../constants/theme';
 import { supabase } from '../lib/supabase';
 import GargoyleLoader from '../components/GargoyleLoader';
-import FriendsTab from './FriendsTab';
 
 const MIN_DURATION_SECONDS = 10 * 60; // 10 minutes
 
@@ -164,7 +163,17 @@ const EXTRA_STATS = {
   topPercentUchicago: '—',
 };
 
-const TABS = ['Stats', 'Friends', 'Sessions'];
+const TABS = ['Stats', 'Sessions', 'FAQ'];
+
+const FAQ_ITEMS = [
+  { q: 'What is Reggy?', a: 'Reggy tracks how much time you spend at the Regenstein Library so you can compete with friends and stay motivated.' },
+  { q: 'How does tracking work?', a: 'Reggy uses your phone\'s location to detect when you enter and leave the Reg. Sessions under 10 minutes are not counted.' },
+  { q: 'What counts as a session?', a: 'Any time you spend inside the Reg for at least 10 minutes. The timer starts when you enter and stops when you leave.' },
+  { q: 'How are streaks calculated?', a: 'A streak counts consecutive days where you had at least one valid session (10+ minutes). Missing a day resets it.' },
+  { q: 'What are the floor options?', a: 'Lobby, floors 2–5, A level, B level, and Mansueto (Sueto). Pick your favorite from your profile!' },
+  { q: 'Who can see my stats?', a: 'Your friends can see your profile and stats. Your live status (in the Reg or not) is private — only you can see it.' },
+  { q: 'How do I add friends?', a: 'Go to the Friends tab and use Search to find people, or tap Add on suggested profiles in the Mine tab.' },
+];
 
 const FLOOR_OPTIONS = ['—', 'Lobby', '2', '3', '4', '5', 'A', 'B', 'Sueto'];
 
@@ -216,14 +225,14 @@ function AnimatedTab({ label, active, onPress }) {
     }).start();
   }, [active]);
 
-  const scale = anim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.1] });
+  const fontSize = anim.interpolate({ inputRange: [0, 1], outputRange: [16, 18] });
   const opacity = anim.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1] });
 
   return (
     <Pressable onPress={onPress}>
-      <Animated.View style={{ opacity, transform: [{ scale }], transformOrigin: 'left bottom' }}>
-        <Text style={[styles.tabText, active && styles.tabTextActive]}>{label}</Text>
-      </Animated.View>
+      <Animated.Text style={[styles.tabText, active && styles.tabTextActive, { fontSize, opacity }]}>
+        {label}
+      </Animated.Text>
     </Pressable>
   );
 }
@@ -353,8 +362,17 @@ export default function Stats({ navigation }) {
 
         {/* Tab content */}
         {activeTab === 'Stats' && renderStatsContent()}
-        {activeTab === 'Friends' && <FriendsTab />}
         {activeTab === 'Sessions' && renderSessionsContent()}
+        {activeTab === 'FAQ' && (
+          <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+            {FAQ_ITEMS.map((item, i) => (
+              <View key={i} style={styles.faqCard}>
+                <Text style={styles.faqQuestion}>{item.q}</Text>
+                <Text style={styles.faqAnswer}>{item.a}</Text>
+              </View>
+            ))}
+          </ScrollView>
+        )}
       </SafeAreaView>
     </LinearGradient>
   );
@@ -414,8 +432,10 @@ const styles = StyleSheet.create({
   // Tab switcher
   tabRow: {
     flexDirection: 'row',
+    alignItems: 'flex-end',
     gap: 20,
     marginTop: 6,
+    height: 26,
   },
   tabText: {
     fontFamily: FONTS.mono,
@@ -498,5 +518,25 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.avant,
     fontSize: 14,
     color: 'rgba(255,255,255,0.5)',
+  },
+
+  // FAQ
+  faqCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    gap: 8,
+  },
+  faqQuestion: {
+    fontFamily: FONTS.ghibli,
+    fontSize: 16,
+    color: COLORS.brown,
+  },
+  faqAnswer: {
+    fontFamily: FONTS.mono,
+    fontSize: 13,
+    color: COLORS.brown,
+    opacity: 0.7,
+    lineHeight: 20,
   },
 });

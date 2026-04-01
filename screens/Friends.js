@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, TextInput, FlatList, SectionList,
-  Image, Pressable, Keyboard, Share, Animated, LayoutAnimation,
+  ScrollView, Image, Pressable, Keyboard, Share, Animated, LayoutAnimation,
   UIManager, Platform,
 } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { COLORS, FONTS } from '../constants/theme';
 import GargoyleLoader from '../components/GargoyleLoader';
+import FriendsTab from './FriendsTab';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -123,14 +124,14 @@ function AnimatedTab({ label, active, onPress }) {
     }).start();
   }, [active]);
 
-  const scale = anim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.1] });
+  const fontSize = anim.interpolate({ inputRange: [0, 1], outputRange: [16, 18] });
   const opacity = anim.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1] });
 
   return (
     <Pressable onPress={onPress}>
-      <Animated.View style={{ opacity, transform: [{ scale }], transformOrigin: 'left bottom' }}>
-        <Text style={[styles.tabText, active && styles.tabTextActive]}>{label}</Text>
-      </Animated.View>
+      <Animated.Text style={[styles.tabText, active && styles.tabTextActive, { fontSize, opacity }]}>
+        {label}
+      </Animated.Text>
     </Pressable>
   );
 }
@@ -500,7 +501,7 @@ export default function Friends({ navigation }) {
     await supabase.from('friendships').upsert({
       user_id: uid,
       friend_id: fid,
-      status: 'pending',
+      status: 'accepted',
     });
 
     setAddedIds((prev) => new Set(prev).add(userId));
@@ -801,6 +802,50 @@ export default function Friends({ navigation }) {
     );
   };
 
+  // --- Mine tab ---
+  const renderMineTab = () => {
+    return (
+      <ScrollView contentContainerStyle={styles.mineScroll} showsVerticalScrollIndicator={false}>
+        <View style={styles.mineFriendsSection}>
+          <Text style={styles.sectionHeader}>My Friends</Text>
+        </View>
+        <FriendsTab scrollEnabled={false} />
+
+        {/* Suggestions */}
+        {users.length > 0 && (
+          <View style={styles.suggestionsSection}>
+            <Text style={styles.sectionHeader}>Suggestions</Text>
+            <View style={styles.suggestionsGrid}>
+              {users.slice(0, 20).map((item) => (
+                <Pressable key={item.id} style={styles.suggestionCard} onPress={() => navigation.navigate('FriendProfile', { friend: item })}>
+                  {item.avatar_url ? (
+                    <Image source={{ uri: item.avatar_url }} style={styles.cardAvatar} />
+                  ) : (
+                    <View style={styles.cardAvatarPlaceholder}>
+                      <Text style={styles.cardAvatarInitial}>
+                        {getName(item).charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
+                  <Text style={styles.cardName} numberOfLines={1}>{getName(item)}</Text>
+                  <Pressable
+                    style={[styles.addBtn, addedIds.has(item.id) && styles.addedBtn]}
+                    onPress={() => handleAdd(item.id)}
+                    disabled={addedIds.has(item.id)}
+                  >
+                    <Text style={[styles.addBtnText, addedIds.has(item.id) && styles.addedBtnText]}>
+                      {addedIds.has(item.id) ? 'Added!' : 'Add'}
+                    </Text>
+                  </Pressable>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        )}
+      </ScrollView>
+    );
+  };
+
   // --- Reactions tab ---
   const renderReactionsTab = () => {
     if (reactionsLoading) {
@@ -871,17 +916,19 @@ export default function Friends({ navigation }) {
 
         <View style={styles.tabRow}>
           <AnimatedTab label="Activity" active={activeTab === 'Activity'} onPress={() => setActiveTab('Activity')} />
-          <AnimatedTab label="Find" active={activeTab === 'Find'} onPress={() => setActiveTab('Find')} />
+          <AnimatedTab label="Mine" active={activeTab === 'Mine'} onPress={() => setActiveTab('Mine')} />
           <AnimatedTab label="Reactions" active={activeTab === 'Reactions'} onPress={() => setActiveTab('Reactions')} />
+          <AnimatedTab label="Search" active={activeTab === 'Search'} onPress={() => setActiveTab('Search')} />
         </View>
 
         <View style={styles.divider} />
       </View>
 
       {/* Tab content */}
-      {activeTab === 'Find' && renderFindTab()}
       {activeTab === 'Activity' && renderActivityTab()}
+      {activeTab === 'Mine' && renderMineTab()}
       {activeTab === 'Reactions' && renderReactionsTab()}
+      {activeTab === 'Search' && renderFindTab()}
     </SafeAreaView>
   );
 }
@@ -908,8 +955,10 @@ const styles = StyleSheet.create({
   // Tabs
   tabRow: {
     flexDirection: 'row',
+    alignItems: 'flex-end',
     gap: 20,
     marginTop: 6,
+    height: 26,
   },
   tabText: {
     fontFamily: FONTS.mono,
@@ -1215,6 +1264,34 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     resizeMode: 'contain',
+  },
+
+  // Mine tab
+  mineScroll: {
+    paddingBottom: 120,
+  },
+  mineFriendsSection: {
+    paddingHorizontal: 24,
+    paddingTop: 8,
+  },
+  suggestionsSection: {
+    paddingHorizontal: 24,
+    paddingTop: 4,
+  },
+  suggestionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    justifyContent: 'space-between',
+  },
+  suggestionCard: {
+    width: '47%',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    paddingVertical: 20,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    gap: 10,
   },
 
   // Active sessions

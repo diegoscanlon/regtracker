@@ -126,10 +126,7 @@ export default function Welcome({ navigation }) {
       <SafeAreaView style={styles.safe}>
         <View style={styles.header}>
           <Text style={styles.title}>REGGY</Text>
-          <Text style={styles.subtitle}>Who is the biggest Reg Rat?</Text>
         </View>
-
-        <View style={styles.center} />
 
         <View style={styles.bottom}>
           {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -140,17 +137,10 @@ export default function Welcome({ navigation }) {
             activeOpacity={0.85}
             disabled={loading}
           >
-            {loading ? (
-              <>
-                <Text style={styles.signInLabel}>Signing in...</Text>
-                <GargoyleLoader size={42} />
-              </>
-            ) : (
-              <>
-                <GoogleLogo size={22} />
-                <Text style={styles.signInLabel}>Sign in with UChicago</Text>
-              </>
-            )}
+            <GoogleLogo size={22} />
+            <Text style={styles.signInLabel}>
+              {loading ? 'Signing in...' : 'Sign in with UChicago'}
+            </Text>
           </TouchableOpacity>
 
           <Text style={styles.legal}>
@@ -175,25 +165,15 @@ const styles = StyleSheet.create({
     paddingTop: 16,
   },
   header: {
-    ...LAYOUT.titleContainer,
+    height: height * 0.4,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
   },
   title: {
     fontFamily: FONTS.ghibli,
-    fontSize: 78,
+    fontSize: 94,
     color: '#fff',
     letterSpacing: 2,
-  },
-  subtitle: {
-    fontFamily: FONTS.ghibliBold,
-    fontSize: 18,
-    color: 'rgba(255,255,255,0.75)',
-    marginTop: 8,
-    letterSpacing: 0.5,
-  },
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   bottom: {
     ...LAYOUT.bottomContainer,

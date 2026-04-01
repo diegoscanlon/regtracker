@@ -54,7 +54,7 @@ function getWeekStart() {
   return start;
 }
 
-export default function FriendsTab() {
+export default function FriendsTab({ scrollEnabled = true }) {
   const navigation = useNavigation();
   const [friends, setFriends] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -145,10 +145,61 @@ export default function FriendsTab() {
     );
   }
 
+  const renderFriendCard = (item) => (
+    <Pressable
+      key={item.id}
+      style={styles.card}
+      onPress={() => navigation.navigate('FriendProfile', { friend: item })}
+    >
+      <View style={styles.cardLeft}>
+        {item.avatar_url ? (
+          <Image source={{ uri: item.avatar_url }} style={styles.avatar} />
+        ) : (
+          <View style={styles.avatarPlaceholder}>
+            <Text style={styles.avatarInitial}>
+              {getName(item).charAt(0).toUpperCase()}
+            </Text>
+          </View>
+        )}
+        <View style={styles.cardInfo}>
+          <Text style={styles.name} numberOfLines={1}>{getName(item)}</Text>
+          {timeAgo(item.lastSeen) ? (
+            <Text style={styles.lastSeen}>{timeAgo(item.lastSeen)}</Text>
+          ) : (
+            <Text style={styles.statLabel}>No Recent Regs</Text>
+          )}
+        </View>
+      </View>
+      <View style={styles.cardRight}>
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>{item.streak}</Text>
+          <Text style={styles.statLabel}>streak</Text>
+        </View>
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>#{item.friendRank}</Text>
+          <Text style={styles.statLabel}>UC rank</Text>
+        </View>
+        <Text style={styles.chevron}>{'>'}</Text>
+      </View>
+    </Pressable>
+  );
+
+  if (!scrollEnabled) {
+    return (
+      <View style={styles.listInline}>
+        {friends.length === 0 ? (
+          <Text style={styles.emptyTextInline}>Add friends!</Text>
+        ) : (
+          friends.map(renderFriendCard)
+        )}
+      </View>
+    );
+  }
+
   if (friends.length === 0) {
     return (
       <View style={styles.center}>
-        <Text style={styles.emptyText}>No friends yet — add some from the Friends tab!</Text>
+        <Text style={styles.emptyText}>Add friends!</Text>
       </View>
     );
   }
@@ -158,43 +209,7 @@ export default function FriendsTab() {
       data={friends}
       keyExtractor={(item) => item.id}
       contentContainerStyle={styles.list}
-      renderItem={({ item }) => (
-        <Pressable
-          style={styles.card}
-          onPress={() => navigation.navigate('FriendProfile', { friend: item })}
-        >
-          <View style={styles.cardLeft}>
-            {item.avatar_url ? (
-              <Image source={{ uri: item.avatar_url }} style={styles.avatar} />
-            ) : (
-              <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarInitial}>
-                  {getName(item).charAt(0).toUpperCase()}
-                </Text>
-              </View>
-            )}
-            <View style={styles.cardInfo}>
-              <Text style={styles.name} numberOfLines={1}>{getName(item)}</Text>
-              {timeAgo(item.lastSeen) ? (
-                <Text style={styles.lastSeen}>{timeAgo(item.lastSeen)}</Text>
-              ) : (
-                <Text style={styles.statLabel}>No Recent Regs</Text>
-              )}
-            </View>
-          </View>
-          <View style={styles.cardRight}>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{item.streak}</Text>
-              <Text style={styles.statLabel}>streak</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>#{item.friendRank}</Text>
-              <Text style={styles.statLabel}>UC rank</Text>
-            </View>
-            <Text style={styles.chevron}>{'>'}</Text>
-          </View>
-        </Pressable>
-      )}
+      renderItem={({ item }) => renderFriendCard(item)}
     />
   );
 }
@@ -204,6 +219,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 16,
     paddingBottom: 120,
+    gap: 12,
+  },
+  listInline: {
+    paddingHorizontal: 24,
+    paddingBottom: 8,
     gap: 12,
   },
   card: {
@@ -295,5 +315,12 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.5)',
     textAlign: 'center',
     paddingHorizontal: 40,
+  },
+  emptyTextInline: {
+    fontFamily: FONTS.mono,
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.5)',
+    textAlign: 'center',
+    paddingVertical: 20,
   },
 });

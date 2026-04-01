@@ -206,9 +206,10 @@ export default function FriendProfile({ route, navigation }) {
     await supabase.from('friendships').upsert({
       user_id: uid,
       friend_id: fid,
-      status: 'pending',
+      status: 'accepted',
     });
     setAddSent(true);
+    setIsFriend(true);
   };
 
   if (loading) {
@@ -312,7 +313,8 @@ const styles = StyleSheet.create({
   },
   addBtn: {
     backgroundColor: '#fff',
-    paddingVertical: 8,
+    paddingTop: 10,
+    paddingBottom: 6,
     paddingHorizontal: 20,
     borderRadius: 50,
     marginBottom: 4,
@@ -321,10 +323,9 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.mint,
   },
   addBtnText: {
-    fontFamily: FONTS.mono,
-    fontSize: 13,
+    fontFamily: FONTS.ghibli,
+    fontSize: 16,
     color: COLORS.brown,
-    fontWeight: '600',
   },
   addBtnTextSent: {
     color: COLORS.brown,

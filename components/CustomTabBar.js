@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Image, Animated } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Path, G } from 'react-native-svg';
 import { COLORS, FONTS } from '../constants/theme';
 
 const { width } = Dimensions.get('window');
@@ -16,6 +16,17 @@ const TAB_IMAGES = {
   Leaderboard: require('../assets/tab-leaderboard.png'),
   Friends: require('../assets/tab-friends.png'),
 };
+
+// Generate grass blades throughout the banner
+// [x%, y offset from top curve, height, lean angle]
+const GRASS_BLADES = [];
+for (let i = 0; i < 60; i++) {
+  const xPct = 0.01 + (i / 60) * 0.98 + (Math.sin(i * 7.3) * 0.008);
+  const yOff = 5 + Math.abs(Math.sin(i * 3.7)) * 90; // spread throughout to bottom
+  const bladeH = 8 + Math.abs(Math.sin(i * 5.1)) * 10;
+  const lean = Math.sin(i * 2.3) * 14;
+  GRASS_BLADES.push([xPct, yOff, bladeH, lean]);
+}
 
 function TabBarBackground() {
   const w = width;
@@ -33,6 +44,25 @@ function TabBarBackground() {
         `}
         fill={COLORS.green}
       />
+      {/* Grass blades throughout */}
+      <G>
+        {GRASS_BLADES.map(([xPct, yOff, bladeH, lean], i) => {
+          const x = w * xPct;
+          const baseY = CURVE + yOff;
+          // Skip blades that would poke above the curve top
+          if (baseY - bladeH < CURVE - 5) return null;
+          const tipX = x + lean * 0.3;
+          const tipY = baseY - bladeH;
+          const opacity = 0.25 + Math.abs(Math.sin(i * 4.2)) * 0.2;
+          return (
+            <Path
+              key={i}
+              d={`M ${x - 1} ${baseY} Q ${x} ${baseY - bladeH * 0.6}, ${tipX} ${tipY} Q ${x + 0.5} ${baseY - bladeH * 0.5}, ${x + 1} ${baseY} Z`}
+              fill={i % 2 === 0 ? `rgba(240,220,120,${opacity})` : `rgba(255,240,150,${opacity})`}
+            />
+          );
+        })}
+      </G>
     </Svg>
   );
 }
@@ -157,8 +187,8 @@ const styles = StyleSheet.create({
     height: 60,
   },
   tabImageProfile: {
-    width: 60,
-    height: 60,
+    width: 48,
+    height: 48,
   },
   label: {
     fontFamily: FONTS.mono,

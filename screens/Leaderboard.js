@@ -29,21 +29,19 @@ function AnimatedTab({ label, active, onPress }) {
     }).start();
   }, [active]);
 
-  const scale = anim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.1] });
+  const fontSize = anim.interpolate({ inputRange: [0, 1], outputRange: [16, 18] });
   const opacity = anim.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1] });
 
   return (
     <Pressable onPress={onPress}>
-      <Animated.View style={{ opacity, transform: [{ scale }], transformOrigin: 'left bottom' }}>
-        <Text
-          style={[
-            styles.leaderboardTabText,
-            { fontWeight: active ? '700' : '400' },
-          ]}
-        >
-          {label}
-        </Text>
-      </Animated.View>
+      <Animated.Text
+        style={[
+          styles.leaderboardTabText,
+          { fontWeight: active ? '700' : '400', fontSize, opacity },
+        ]}
+      >
+        {label}
+      </Animated.Text>
     </Pressable>
   );
 }
@@ -242,6 +240,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: 20,
+    height: 26,
   },
   leaderboardTabText: {
     fontFamily: FONTS.mono,
