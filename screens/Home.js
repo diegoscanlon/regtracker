@@ -46,10 +46,10 @@ export default function Home() {
     <Tab.Navigator
       tabBar={(props) => <CustomTabBar {...props} />}
       screenOptions={{ headerShown: false }}
-      initialRouteName="Friends"
+      initialRouteName="Activity"
     >
       <Tab.Screen name="Leaderboard" component={LeaderboardStackScreen} />
-      <Tab.Screen name="Friends" component={FriendsStackScreen} />
+      <Tab.Screen name="Activity" component={FriendsStackScreen} />
       <Tab.Screen name="Profile" component={ProfileStackScreen} />
       <Tab.Screen name="Admin" component={Admin} />
     </Tab.Navigator>

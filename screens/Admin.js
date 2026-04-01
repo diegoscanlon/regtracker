@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, SafeAreaView, Pressable, Alert } from 'react-na
 import { LinearGradient } from 'expo-linear-gradient';
 import MapView, { Polygon, Circle } from 'react-native-maps';
 import * as SecureStore from 'expo-secure-store';
-import useGeofence from '../lib/useGeofence';
+import { useGeofenceContext } from '../lib/GeofenceContext';
 import { supabase } from '../lib/supabase';
 import { COLORS, FONTS } from '../constants/theme';
 import { REG_CENTER, REG_RADIUS, REG_POLYGON } from '../constants/geofence';
@@ -16,7 +16,7 @@ function formatTime(totalSeconds) {
 }
 
 export default function Admin() {
-  const { userLocation, isInReg, elapsedSeconds, devToggle } = useGeofence();
+  const { userLocation, isInReg, elapsedSeconds, devToggle } = useGeofenceContext();
 
   const handleSignOut = () => {
     Alert.alert('Sign Out', 'This will sign you out and reset onboarding.', [

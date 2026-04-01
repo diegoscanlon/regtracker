@@ -8,18 +8,17 @@ import { COLORS, FONTS, LAYOUT } from '../../constants/theme';
 import { supabase } from '../../lib/supabase';
 
 const AVATARS = [
-  { id: 'phoenix', source: require('../../assets/avatars/phoenix.png') },
+  { id: 'lovebird', source: require('../../assets/avatars/lovebird.png') },
   { id: 'gargoyle', source: require('../../assets/avatars/gargoyle.png') },
   { id: 'squirrel', source: require('../../assets/avatars/squirrel.png') },
   { id: 'goose', source: require('../../assets/avatars/goose.png') },
   { id: 'duck', source: require('../../assets/avatars/duck.png') },
 ];
 
-const YEAR_ROW_1 = ['1st Year', '2nd Year', '3rd Year'];
-const YEAR_ROW_2 = ['4th Year', 'Grad', 'Prof'];
+const YEAR_ROW_1 = ['First', 'Second', 'Third'];
+const YEAR_ROW_2 = ['Fourth', 'Grad', 'Prof'];
 
-const FLOOR_ROW_1 = ['1', '2', '3', '4', '5'];
-const FLOOR_ROW_2 = ['A', 'B', 'Sueto'];
+const ALL_FLOORS = ['1', '2', '3', '4', '5', 'A', 'B', 'Sueto', 'Ex'];
 
 const SPRING = { useNativeDriver: true, friction: 7, tension: 40 };
 
@@ -33,6 +32,10 @@ export default function Photo({ navigation }) {
   const avatarScales = useRef(AVATARS.map(() => new Animated.Value(1))).current;
   const uploadScale = useRef(new Animated.Value(1)).current;
   const btnScale = useRef(new Animated.Value(1)).current;
+
+  const ALL_YEARS = [...YEAR_ROW_1, ...YEAR_ROW_2];
+  const yearScales = useRef(ALL_YEARS.map(() => new Animated.Value(1))).current;
+  const floorScales = useRef(ALL_FLOORS.map(() => new Animated.Value(1))).current;
 
   // Card entrance animations
   const pictureCardAnim = useRef(new Animated.Value(0)).current;
@@ -85,8 +88,30 @@ export default function Photo({ navigation }) {
     setCustomUri(null);
     Animated.sequence([
       Animated.spring(avatarScales[index], { toValue: 0.9, useNativeDriver: true, friction: 8, tension: 150 }),
-      Animated.spring(avatarScales[index], { toValue: 1, useNativeDriver: true, friction: 6, tension: 120 }),
+      Animated.spring(avatarScales[index], { toValue: 1, useNativeDriver: true, friction: 5, tension: 200 }),
     ]).start();
+  }, []);
+
+  const handleYearTap = useCallback((year) => {
+    setSelectedYear(year);
+    const idx = ALL_YEARS.indexOf(year);
+    if (idx >= 0) {
+      Animated.sequence([
+        Animated.spring(yearScales[idx], { toValue: 0.9, useNativeDriver: true, friction: 8, tension: 150 }),
+        Animated.spring(yearScales[idx], { toValue: 1, useNativeDriver: true, friction: 5, tension: 200 }),
+      ]).start();
+    }
+  }, []);
+
+  const handleFloorTap = useCallback((floor) => {
+    setSelectedFloor(floor);
+    const idx = ALL_FLOORS.indexOf(floor);
+    if (idx >= 0) {
+      Animated.sequence([
+        Animated.spring(floorScales[idx], { toValue: 0.9, useNativeDriver: true, friction: 8, tension: 150 }),
+        Animated.spring(floorScales[idx], { toValue: 1, useNativeDriver: true, friction: 5, tension: 200 }),
+      ]).start();
+    }
   }, []);
 
   const pickImage = async (useCamera) => {
@@ -118,7 +143,7 @@ export default function Photo({ navigation }) {
   const handleUploadPress = () => {
     Animated.sequence([
       Animated.spring(uploadScale, { toValue: 0.9, useNativeDriver: true, friction: 8, tension: 150 }),
-      Animated.spring(uploadScale, { toValue: 1, useNativeDriver: true, friction: 6, tension: 120 }),
+      Animated.spring(uploadScale, { toValue: 1, useNativeDriver: true, friction: 5, tension: 200 }),
     ]).start();
 
     if (Platform.OS === 'ios') {
@@ -194,11 +219,9 @@ export default function Photo({ navigation }) {
     <View style={styles.container}>
       <SafeAreaView style={styles.safe}>
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          <Text style={styles.title}>Your Reggy</Text>
-
           {/* Picture section */}
           <Animated.View style={[styles.pictureSection, animStyle(pictureCardAnim)]}>
-            <Text style={styles.sectionTitle}>Picture</Text>
+            <Text style={[styles.sectionTitle, { textAlign: 'center' }]}>Profile</Text>
             <View style={styles.pictureGrid}>
               <Pressable onPress={handleUploadPress}>
                 <Animated.View style={[
@@ -232,76 +255,63 @@ export default function Photo({ navigation }) {
           </Animated.View>
 
           {/* Year section */}
-          <Animated.View style={[styles.section, animStyle(yearCardAnim)]}>
-            <Text style={styles.sectionTitle}>Year</Text>
-            <View style={styles.chipRow}>
-              {YEAR_ROW_1.map((year) => {
-                const isSelected = selectedYear === year;
-                return (
-                  <Pressable
-                    key={year}
-                    onPress={() => setSelectedYear(year)}
-                    style={[styles.yearChip, isSelected && styles.chipSelected]}
-                  >
-                    <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
-                      {year}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+          <Animated.View style={[styles.yearSection, animStyle(yearCardAnim)]}>
+            <View style={styles.yearLeft}>
+              <Text style={styles.sectionTitle}>Year</Text>
+              <View style={styles.yearChips}>
+                {[['First', 'Second'], ['Third', 'Fourth'], ['Grad', 'Prof']].map((row, ri) => (
+                  <View key={ri} style={styles.yearRow}>
+                    {row.map((year) => {
+                      const isSelected = selectedYear === year;
+                      const idx = ALL_YEARS.indexOf(year);
+                      return (
+                        <Pressable key={year} onPress={() => handleYearTap(year)}>
+                          <Animated.View style={[
+                            styles.yearChip,
+                            isSelected && styles.chipSelected,
+                            { transform: [{ scale: yearScales[idx] }] },
+                          ]}>
+                            <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
+                              {year}
+                            </Text>
+                          </Animated.View>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                ))}
+              </View>
             </View>
-            <View style={styles.chipRowCentered}>
-              {YEAR_ROW_2.map((year) => {
-                const isSelected = selectedYear === year;
-                return (
-                  <Pressable
-                    key={year}
-                    onPress={() => setSelectedYear(year)}
-                    style={[styles.yearChip, isSelected && styles.chipSelected]}
-                  >
-                    <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
-                      {year}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+            <Image source={require('../../assets/pointer.png')} style={styles.pointerImage} />
           </Animated.View>
 
           {/* Floor section */}
-          <Animated.View style={[styles.section, animStyle(floorCardAnim)]}>
-            <Text style={styles.sectionTitle}>Favorite Floor</Text>
-            <View style={styles.chipRow}>
-              {FLOOR_ROW_1.map((floor) => {
-                const isSelected = selectedFloor === floor;
-                return (
-                  <Pressable
-                    key={floor}
-                    onPress={() => setSelectedFloor(floor)}
-                    style={[styles.floorChip, isSelected && styles.chipSelected]}
-                  >
-                    <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
-                      {floor}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-            <View style={styles.chipRowCentered}>
-              {FLOOR_ROW_2.map((floor) => {
-                const isSelected = selectedFloor === floor;
-                return (
-                  <Pressable
-                    key={floor}
-                    onPress={() => setSelectedFloor(floor)}
-                    style={[styles.floorChipWide, isSelected && styles.chipSelected]}
-                  >
-                    <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
-                      {floor}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+          <Animated.View style={[styles.floorSection, animStyle(floorCardAnim)]}>
+            <Image source={require('../../assets/pointer-floor.png')} style={styles.pointerImageFloor} />
+            <View style={styles.floorRight}>
+              <Text style={[styles.sectionTitle, { textAlign: 'right' }]}>Fav Floor</Text>
+                {[['1','2','3'], ['4','5','A'], ['B','Sueto','Ex']].map((row, ri) => (
+                  <View key={ri} style={styles.floorRow}>
+                    {row.map((floor) => {
+                      const isWide = ['Sueto', 'Ex'].includes(floor);
+                      const isSelected = selectedFloor === floor;
+                      const idx = ALL_FLOORS.indexOf(floor);
+                      return (
+                        <Pressable key={floor} onPress={() => handleFloorTap(floor)}>
+                          <Animated.View style={[
+                            isWide ? styles.floorChipWide : styles.floorChip,
+                            isSelected && styles.chipSelected,
+                            { transform: [{ scale: floorScales[idx] }] },
+                          ]}>
+                            <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
+                              {floor}
+                            </Text>
+                          </Animated.View>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                ))}
             </View>
           </Animated.View>
         </ScrollView>
@@ -331,7 +341,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 16,
     paddingBottom: 140,
-    gap: 16,
+    gap: 24,
   },
   title: {
     fontFamily: FONTS.ghibli,
@@ -341,14 +351,14 @@ const styles = StyleSheet.create({
 
   // Sections
   section: {
-    gap: 14,
+    gap: 6,
   },
   pictureSection: {
     gap: 14,
   },
   sectionTitle: {
     fontFamily: FONTS.ghibli,
-    fontSize: 24,
+    fontSize: 38,
     color: '#fff',
   },
 
@@ -395,6 +405,52 @@ const styles = StyleSheet.create({
     gap: 8,
     justifyContent: 'center',
   },
+  yearSection: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+  },
+  yearLeft: {
+    flex: 1,
+    gap: 6,
+  },
+  yearChips: {
+    gap: 8,
+  },
+  yearRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  pointerImage: {
+    width: 130,
+    height: 158,
+    resizeMode: 'contain',
+    alignSelf: 'flex-end',
+    marginBottom: -10,
+    marginRight: 12,
+  },
+  floorSection: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 4,
+    alignSelf: 'center',
+    marginLeft: -10,
+  },
+  floorRight: {
+    gap: 6,
+    alignItems: 'flex-end',
+  },
+  floorRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  pointerImageFloor: {
+    width: 135,
+    height: 187,
+    resizeMode: 'contain',
+    alignSelf: 'flex-end',
+    marginLeft: -10,
+  },
   yearChip: {
     backgroundColor: '#fff',
     borderRadius: 50,
@@ -411,9 +467,9 @@ const styles = StyleSheet.create({
   },
   floorChipWide: {
     backgroundColor: '#fff',
-    borderRadius: 50,
-    paddingVertical: 10,
-    paddingHorizontal: 18,
+    height: 44,
+    borderRadius: 22,
+    paddingHorizontal: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },

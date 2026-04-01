@@ -1,9 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, Pressable, SafeAreaView, Alert,
-  TouchableOpacity, Animated, AppState,
+  TouchableOpacity, Animated, AppState, Image,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Contacts from 'expo-contacts';
 import * as SMS from 'expo-sms';
 import * as SecureStore from 'expo-secure-store';
@@ -12,21 +11,96 @@ import { COLORS, FONTS, LAYOUT } from '../../constants/theme';
 import { supabase } from '../../lib/supabase';
 
 const APP_SCHEME = 'regtracker';
+const CIRCLE_SIZE = 100;
 
 function generateReferralCode() {
-  // 8-char hex code
   const bytes = Crypto.getRandomBytes(4);
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+function SlotCircle({ filled, onPress, delay, shakeAnim }) {
+  const scale = useRef(new Animated.Value(1)).current;
+  const entranceAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.spring(entranceAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      friction: 7,
+      tension: 40,
+      delay,
+    }).start();
+  }, []);
+
+  const handlePress = () => {
+    Animated.sequence([
+      Animated.spring(scale, { toValue: 0.9, useNativeDriver: true, friction: 8, tension: 150 }),
+      Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 6, tension: 120 }),
+    ]).start();
+    onPress();
+  };
+
+  return (
+    <Animated.View style={{
+      opacity: entranceAnim,
+      transform: [
+        { scale: Animated.multiply(scale, entranceAnim) },
+        { translateX: shakeAnim },
+      ],
+    }}>
+      <Pressable onPress={handlePress} style={styles.slotWrap}>
+        <View style={[styles.circle, filled && styles.circleFilled]}>
+          {filled ? (
+            <Text style={styles.circleInitial}>{filled.name.charAt(0).toUpperCase()}</Text>
+          ) : (
+            <Text style={styles.circlePlus}>+</Text>
+          )}
+        </View>
+        <Text style={[styles.circleName, filled && styles.circleNameFilled]} numberOfLines={1}>
+          {filled ? filled.name : 'Tap to invite'}
+        </Text>
+      </Pressable>
+    </Animated.View>
+  );
+}
+
 export default function Invite({ navigation }) {
-  // Each slot: { name, phone, referralCode } or null
   const [friends, setFriends] = useState([null, null, null]);
   const [hasContactsPermission, setHasContactsPermission] = useState(null);
   const [pendingSMSIndex, setPendingSMSIndex] = useState(null);
   const appState = useRef(AppState.currentState);
+  const btnScale = useRef(new Animated.Value(1)).current;
+  const btnAnim = useRef(new Animated.Value(0)).current;
+  const [btnRevealed, setBtnRevealed] = useState(false);
+  const shakes = useRef([0, 1, 2].map(() => new Animated.Value(0))).current;
 
-  // When user returns from SMS app, mark the invite as sent
+  const shakeCircle = useCallback((index) => {
+    const v = shakes[index];
+    Animated.sequence([
+      Animated.timing(v, { toValue: 4, duration: 50, useNativeDriver: true }),
+      Animated.timing(v, { toValue: -4, duration: 50, useNativeDriver: true }),
+      Animated.timing(v, { toValue: 3, duration: 50, useNativeDriver: true }),
+      Animated.timing(v, { toValue: -3, duration: 50, useNativeDriver: true }),
+      Animated.timing(v, { toValue: 0, duration: 50, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
+  useEffect(() => {
+    let cardIndex = 0;
+    const tick = () => {
+      shakeCircle(cardIndex);
+      cardIndex++;
+      if (cardIndex < 3) {
+        timerId = setTimeout(tick, 450);
+      } else {
+        cardIndex = 0;
+        timerId = setTimeout(tick, 3000);
+      }
+    };
+    let timerId = setTimeout(tick, 1500);
+    return () => clearTimeout(timerId);
+  }, [shakeCircle]);
+
   useEffect(() => {
     const sub = AppState.addEventListener('change', (nextState) => {
       if (
@@ -34,13 +108,27 @@ export default function Invite({ navigation }) {
         nextState === 'active' &&
         pendingSMSIndex !== null
       ) {
-        // User came back from SMS — count the invite as sent
         setPendingSMSIndex(null);
       }
       appState.current = nextState;
     });
     return () => sub.remove();
   }, [pendingSMSIndex]);
+
+  const inviteCount = friends.filter(Boolean).length;
+  const allInvited = inviteCount === 3;
+
+  useEffect(() => {
+    if (allInvited && !btnRevealed) {
+      setBtnRevealed(true);
+      Animated.spring(btnAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        friction: 7,
+        tension: 40,
+      }).start();
+    }
+  }, [allInvited, btnRevealed]);
 
   const ensureContactsPermission = async () => {
     if (hasContactsPermission) return true;
@@ -57,16 +145,14 @@ export default function Invite({ navigation }) {
   };
 
   const handleSlotPress = async (index) => {
-    if (friends[index]) return; // already filled
+    if (friends[index]) return;
 
     const granted = await ensureContactsPermission();
     if (!granted) return;
 
-    // Open native contact picker
     const contact = await Contacts.presentContactPickerAsync();
-    if (!contact) return; // user cancelled
+    if (!contact) return;
 
-    // Get the first phone number
     const phone =
       contact.phoneNumbers && contact.phoneNumbers.length > 0
         ? contact.phoneNumbers[0].number
@@ -82,19 +168,16 @@ export default function Invite({ navigation }) {
       [contact.firstName, contact.lastName].filter(Boolean).join(' ') ||
       'Friend';
 
-    // Check if this phone is already invited
     const alreadyInvited = friends.some((f) => f && f.phone === phone);
     if (alreadyInvited) {
       Alert.alert('Already Invited', `You've already invited ${name}!`);
       return;
     }
 
-    // Generate referral code and record the invite
     const referralCode = generateReferralCode();
     const deepLink = `${APP_SCHEME}://invite?ref=${referralCode}`;
-    const message = `see who grinds harder 💪\n${deepLink}`;
+    const message = `see who grinds harder\n${deepLink}`;
 
-    // Save invite to Supabase
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       await supabase.from('invites').insert({
@@ -105,23 +188,16 @@ export default function Invite({ navigation }) {
       });
     }
 
-    // Check if SMS is available
     const isAvailable = await SMS.isAvailableAsync();
     if (!isAvailable) {
       Alert.alert('SMS Not Available', 'SMS is not available on this device.');
       return;
     }
 
-    // Track that we're about to open SMS
     setPendingSMSIndex(index);
-
-    // Open iMessage / SMS composer
     const { result } = await SMS.sendSMSAsync([phone], message);
 
-    // Update the slot
     if (result === 'sent' || result === 'unknown') {
-      // iOS returns 'unknown' when the SMS composer is dismissed
-      // (it doesn't reliably report 'sent'), so we count both
       const updated = [...friends];
       updated[index] = { name, phone, referralCode };
       setFriends(updated);
@@ -129,193 +205,166 @@ export default function Invite({ navigation }) {
     setPendingSMSIndex(null);
   };
 
-  const inviteCount = friends.filter(Boolean).length;
-  const allInvited = inviteCount === 3;
-
   const handleFinish = async () => {
-    await SecureStore.setItemAsync('onboarding_complete', 'true');
-    navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+    Animated.spring(btnScale, {
+      toValue: 0.92,
+      useNativeDriver: true,
+      friction: 8,
+      tension: 100,
+    }).start(async () => {
+      await SecureStore.setItemAsync('onboarding_complete', 'true');
+      navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+    });
   };
 
   return (
-    <LinearGradient colors={['#D4E8FF', '#FFF5F8', '#E8D4FF']} style={styles.gradient}>
+    <View style={styles.container}>
       <SafeAreaView style={styles.safe}>
-        {/* Header */}
-        <View style={styles.headerWrap}>
-          <Text style={styles.title}>Invite 3 Friends</Text>
-          <Text style={styles.subtitle}>Social media doesn't work without friends!</Text>
+        <View style={styles.centerGroup}>
+          <Text style={styles.title}>Invite Friends</Text>
+          <Text style={styles.subtitle}>Reggy only works with friends</Text>
+
+          {/* Pyramid */}
+          <View style={styles.pyramid}>
+            <View style={styles.row}>
+              <SlotCircle filled={friends[0]} onPress={() => handleSlotPress(0)} delay={0} shakeAnim={shakes[0]} />
+            </View>
+            <View style={styles.row}>
+              <SlotCircle filled={friends[1]} onPress={() => handleSlotPress(1)} delay={200} shakeAnim={shakes[1]} />
+              <SlotCircle filled={friends[2]} onPress={() => handleSlotPress(2)} delay={400} shakeAnim={shakes[2]} />
+            </View>
+          </View>
+
+          <Text style={styles.counter}>{inviteCount}/3 invited</Text>
         </View>
 
-        {/* Pyramid of circles */}
-        <View style={styles.pyramid}>
-          {/* Top row — 1 circle */}
-          <View style={styles.row}>
-            <SlotCircle
-              filled={friends[0]}
-              onPress={() => handleSlotPress(0)}
-            />
-          </View>
-          {/* Bottom row — 2 circles */}
-          <View style={styles.row}>
-            <SlotCircle
-              filled={friends[1]}
-              onPress={() => handleSlotPress(1)}
-            />
-            <View style={{ width: 24 }} />
-            <SlotCircle
-              filled={friends[2]}
-              onPress={() => handleSlotPress(2)}
-            />
-          </View>
-        </View>
-
-        {/* Bottom actions */}
+        {/* Bottom */}
         <View style={styles.bottom}>
           {allInvited && (
-            <TouchableOpacity
-              style={styles.actionBtn}
-              onPress={handleFinish}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.actionBtnLabel}>Continue</Text>
-            </TouchableOpacity>
+            <Animated.View style={{
+              opacity: btnAnim,
+              transform: [{ scale: btnScale }, {
+                translateY: btnAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }),
+              }],
+            }}>
+              <TouchableOpacity
+                style={styles.continueBtn}
+                onPress={handleFinish}
+                activeOpacity={1}
+              >
+                <Text style={styles.continueBtnLabel}>Continue</Text>
+              </TouchableOpacity>
+            </Animated.View>
           )}
-          <Pressable onPress={handleFinish} style={styles.skipBtn}>
+          <Pressable onPress={handleFinish} hitSlop={12}>
             <Text style={styles.skipText}>skip for now</Text>
           </Pressable>
         </View>
       </SafeAreaView>
-    </LinearGradient>
+    </View>
   );
 }
-
-function SlotCircle({ filled, onPress }) {
-  const scale = useRef(new Animated.Value(1)).current;
-
-  const handlePressIn = () => {
-    Animated.spring(scale, { toValue: 0.92, useNativeDriver: true }).start();
-  };
-  const handlePressOut = () => {
-    Animated.spring(scale, { toValue: 1, useNativeDriver: true }).start();
-  };
-
-  return (
-    <Pressable onPress={onPress} onPressIn={handlePressIn} onPressOut={handlePressOut}>
-      <Animated.View style={[styles.circleOuter, { transform: [{ scale }] }]}>
-        <View style={styles.circleShadow} />
-        <View style={[styles.circle, filled && styles.circleFilled]}>
-          {filled ? (
-            <Text style={styles.circleInitial}>{filled.name.charAt(0).toUpperCase()}</Text>
-          ) : (
-            <Text style={styles.circlePlus}>+</Text>
-          )}
-        </View>
-      </Animated.View>
-      {filled && <Text style={styles.circleName} numberOfLines={1}>{filled.name}</Text>}
-    </Pressable>
-  );
-}
-
-const CIRCLE_SIZE = 150;
 
 const styles = StyleSheet.create({
-  gradient: { flex: 1 },
+  container: { flex: 1, backgroundColor: COLORS.blue },
   safe: {
     flex: 1,
+    paddingHorizontal: 28,
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 32,
   },
-  headerWrap: {
-    ...LAYOUT.titleContainer,
-    gap: 10,
+  centerGroup: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   title: {
     fontFamily: FONTS.ghibli,
-    fontSize: 35,
-    color: COLORS.dark,
+    fontSize: 38,
+    color: '#fff',
     textAlign: 'center',
   },
   subtitle: {
-    fontFamily: FONTS.avant,
-    fontSize: 20,
-    color: COLORS.muted,
+    fontFamily: FONTS.mono,
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.6)',
     textAlign: 'center',
+    marginTop: 4,
   },
+
+  // Pyramid
   pyramid: {
     alignItems: 'center',
-    gap: 20,
-    marginTop: 20,
+    gap: 16,
+    marginTop: 24,
   },
   row: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    gap: 20,
+  },
+  slotWrap: {
     alignItems: 'center',
-  },
-  circleOuter: {
-    width: CIRCLE_SIZE + 5,
-    height: CIRCLE_SIZE + 5,
-  },
-  circleShadow: {
-    position: 'absolute',
-    top: 5,
-    left: 5,
-    width: CIRCLE_SIZE,
-    height: CIRCLE_SIZE,
-    borderRadius: CIRCLE_SIZE / 2,
-    backgroundColor: COLORS.dark,
+    gap: 8,
   },
   circle: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
     width: CIRCLE_SIZE,
     height: CIRCLE_SIZE,
     borderRadius: CIRCLE_SIZE / 2,
-    borderWidth: 2,
-    borderColor: COLORS.dark,
-    backgroundColor: COLORS.surface,
+    backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
   },
   circleFilled: {
-    backgroundColor: COLORS.mint,
+    backgroundColor: COLORS.green,
   },
   circlePlus: {
     fontFamily: FONTS.ghibli,
-    fontSize: 36,
-    color: COLORS.muted,
-    marginTop: -2,
+    fontSize: 32,
+    color: COLORS.brown,
+    opacity: 0.3,
   },
   circleInitial: {
     fontFamily: FONTS.ghibli,
-    fontSize: 32,
-    color: COLORS.dark,
+    fontSize: 28,
+    color: '#fff',
   },
   circleName: {
-    fontFamily: FONTS.avant,
-    fontSize: 12,
-    color: COLORS.dark,
+    fontFamily: FONTS.mono,
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.4)',
     textAlign: 'center',
-    marginTop: 4,
     maxWidth: CIRCLE_SIZE,
   },
+  circleNameFilled: {
+    color: '#fff',
+    opacity: 0.8,
+  },
+
+  // Counter
+  counter: {
+    fontFamily: FONTS.ghibli,
+    fontSize: 24,
+    color: '#fff',
+    marginTop: 30,
+  },
+
+  // Bottom
   bottom: {
     ...LAYOUT.bottomContainer,
+    gap: 16,
   },
-  actionBtn: {
+  continueBtn: {
     ...LAYOUT.actionBtn,
+    backgroundColor: '#fff',
   },
-  actionBtnLabel: {
-    fontFamily: FONTS.mono,
-    fontSize: 15,
-    color: COLORS.dark,
-    letterSpacing: 0.2,
+  continueBtnLabel: {
+    fontFamily: FONTS.ghibli,
+    fontSize: 18,
+    color: COLORS.brown,
   },
-  skipBtn: { padding: 8 },
   skipText: {
+    fontFamily: FONTS.mono,
     fontSize: 12,
-    color: COLORS.muted,
+    color: 'rgba(255,255,255,0.4)',
     textDecorationLine: 'underline',
   },
 });

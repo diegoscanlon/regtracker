@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, TouchableOpacity,
-  Share, ScrollView, Image, Pressable, Animated, Alert,
+  Share, ScrollView, Image, Pressable, Animated, Alert, Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as SecureStore from 'expo-secure-store';
@@ -398,6 +398,14 @@ export default function Stats({ navigation }) {
               <Text style={styles.signOutBtnText}>Sign Out</Text>
             </TouchableOpacity>
 
+            <TouchableOpacity
+              style={styles.supportBtn}
+              onPress={() => Linking.openURL('mailto:dscanlon@uchicago.edu')}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.supportBtnText}>Support</Text>
+            </TouchableOpacity>
+
             {/* FAQ section */}
             <Text style={[styles.settingsSectionTitle, { marginTop: 28 }]}>FAQ</Text>
 
@@ -586,6 +594,25 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.ghibli,
     fontSize: 16,
     color: '#fff',
+  },
+  supportBtn: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    marginTop: 10,
+    gap: 4,
+  },
+  supportBtnText: {
+    fontFamily: FONTS.ghibli,
+    fontSize: 16,
+    color: COLORS.brown,
+  },
+  supportEmail: {
+    fontFamily: FONTS.mono,
+    fontSize: 12,
+    color: COLORS.brown,
+    opacity: 0.5,
   },
   // FAQ
   faqCard: {

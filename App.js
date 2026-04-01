@@ -8,6 +8,8 @@ import { useFonts, PressStart2P_400Regular } from '@expo-google-fonts/press-star
 import { JetBrainsMono_400Regular, JetBrainsMono_700Bold } from '@expo-google-fonts/jetbrains-mono';
 import * as SecureStore from 'expo-secure-store';
 import { supabase } from './lib/supabase';
+import { GeofenceProvider } from './lib/GeofenceContext';
+import SparkleOverlay from './components/SparkleOverlay';
 
 import Welcome from './screens/onboarding/Welcome';
 import Features from './screens/onboarding/Features';
@@ -60,6 +62,8 @@ export default function App() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
+      <SparkleOverlay>
+      <GeofenceProvider>
       <NavigationContainer>
         <Stack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
           {showHome ? (
@@ -76,6 +80,8 @@ export default function App() {
           )}
         </Stack.Navigator>
       </NavigationContainer>
+      </GeofenceProvider>
+      </SparkleOverlay>
     </GestureHandlerRootView>
   );
 }

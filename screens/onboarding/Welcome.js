@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet,
-  SafeAreaView, TouchableOpacity, Dimensions,
+  SafeAreaView, TouchableOpacity, Dimensions, Platform,
 } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
@@ -24,6 +24,17 @@ function GoogleLogo({ size = 22 }) {
   );
 }
 
+function AppleLogo({ size = 22 }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path
+        fill="#000"
+        d="M17.05 20.28c-.98.95-2.05.88-3.08.4c-1.09-.5-2.08-.48-3.24 0c-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8c1.18-.24 2.31-.93 3.57-.84c1.51.12 2.65.72 3.4 1.8c-3.12 1.87-2.38 5.98.48 7.13c-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25c.29 2.58-2.34 4.5-3.74 4.25z"
+      />
+    </Svg>
+  );
+}
+
 export default function Welcome({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -41,6 +52,57 @@ export default function Welcome({ navigation }) {
           redirectTo,
           skipBrowserRedirect: true,
           queryParams: { hd: 'uchicago.edu', prompt: 'select_account' },
+        },
+      });
+
+      if (oauthError) throw oauthError;
+
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+
+      if (result.type === 'success') {
+        const fragment = result.url.split('#')[1] || '';
+        const params = Object.fromEntries(new URLSearchParams(fragment));
+
+        if (params.access_token) {
+          const { error: sessionError } = await supabase.auth.setSession({
+            access_token: params.access_token,
+            refresh_token: params.refresh_token,
+          });
+          if (sessionError) throw sessionError;
+
+          const { data: { user } } = await supabase.auth.getUser();
+
+          if (!user?.email?.endsWith('@uchicago.edu')) {
+            await supabase.auth.signOut();
+            setError('UChicago accounts only');
+            return;
+          }
+
+          navigation.navigate('Features');
+        } else {
+          setError('Sign in was cancelled');
+        }
+      }
+    } catch (err) {
+      setError('Sign in failed. Please try again.');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAppleSignIn = async () => {
+    try {
+      setLoading(true);
+      setError('');
+
+      const redirectTo = Linking.createURL('auth-callback');
+
+      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider: 'apple',
+        options: {
+          redirectTo,
+          skipBrowserRedirect: true,
         },
       });
 
@@ -103,6 +165,18 @@ export default function Welcome({ navigation }) {
             </Text>
           </TouchableOpacity>
 
+          <TouchableOpacity
+            style={[styles.signInBtn, styles.appleBtn]}
+            onPress={handleAppleSignIn}
+            activeOpacity={0.85}
+            disabled={loading}
+          >
+            <AppleLogo size={22} />
+            <Text style={[styles.signInLabel, styles.appleBtnLabel]}>
+              Sign in with Apple
+            </Text>
+          </TouchableOpacity>
+
           <Text style={styles.legal}>
             By continuing, you agree to our{'\n'}
             <Text style={styles.legalLink}>Terms of Service</Text>
@@ -160,6 +234,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#1E1238',
     letterSpacing: 0.2,
+  },
+  appleBtn: {
+    backgroundColor: '#000',
+  },
+  appleBtnLabel: {
+    color: '#fff',
   },
   legal: {
     fontFamily: FONTS.mono,

@@ -14,7 +14,7 @@ const TAB_ICONS = {
 const TAB_IMAGES = {
   Profile: require('../assets/tab-stats.png'),
   Leaderboard: require('../assets/tab-leaderboard.png'),
-  Friends: require('../assets/tab-friends.png'),
+  Activity: require('../assets/tab-friends.png'),
 };
 
 // Generate grass blades throughout the banner

@@ -4,7 +4,9 @@ import {
   ScrollView, Image, Pressable, Keyboard, Share, Animated, LayoutAnimation,
   UIManager, Platform,
 } from 'react-native';
+import { Dimensions } from 'react-native';
 import { supabase } from '../lib/supabase';
+import { useGeofenceContext } from '../lib/GeofenceContext';
 import { COLORS, FONTS } from '../constants/theme';
 import GargoyleLoader from '../components/GargoyleLoader';
 import FriendsTab from './FriendsTab';
@@ -136,8 +138,68 @@ function AnimatedTab({ label, active, onPress }) {
   );
 }
 
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+function formatStatusTime(totalSeconds) {
+  if (!totalSeconds || totalSeconds <= 0) return '0:00';
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  return [h, m, s].map((v) => String(v).padStart(2, '0')).join(':');
+}
+
+function formatLastSession(session) {
+  if (!session) return 'No sessions yet';
+  const start = new Date(session.started_at);
+  const totalSec = session.total_seconds || 0;
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+
+  const today = new Date();
+  const isToday = start.toDateString() === today.toDateString();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  const isYesterday = start.toDateString() === yesterday.toDateString();
+
+  const dayStr = isToday ? 'Today' : isYesterday ? 'Yesterday' : start.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const dur = h > 0 ? `${h}h ${m}m` : `${m}m`;
+  return `${dayStr} — ${dur}`;
+}
+
 export default function Friends({ navigation }) {
   const [activeTab, setActiveTab] = useState('Activity');
+  const { isInReg, elapsedSeconds } = useGeofenceContext();
+  const [lastSession, setLastSession] = useState(null);
+  const borderPulse = useRef(new Animated.Value(0)).current;
+  const statusCardScale = useRef(new Animated.Value(1)).current;
+  const sparkleAnims = useRef(
+    Array.from({ length: 8 }, () => new Animated.Value(0))
+  ).current;
+
+  useEffect(() => {
+    // Border + background tint pulse
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(borderPulse, { toValue: 1, duration: 1200, useNativeDriver: false }),
+        Animated.timing(borderPulse, { toValue: 0, duration: 1200, useNativeDriver: false }),
+      ])
+    ).start();
+
+    // Sparkles — staggered fade in/out
+    sparkleAnims.forEach((anim, i) => {
+      const delay = i * 400;
+      setTimeout(() => {
+        Animated.loop(
+          Animated.sequence([
+            Animated.timing(anim, { toValue: 1, duration: 600, useNativeDriver: true }),
+            Animated.timing(anim, { toValue: 0, duration: 600, useNativeDriver: true }),
+            Animated.delay(1600),
+          ])
+        ).start();
+      }, delay);
+    });
+
+  }, []);
 
   // --- Find tab state ---
   const [query, setQuery] = useState('');
@@ -195,6 +257,22 @@ export default function Friends({ navigation }) {
       setStudentCount(Math.floor((realCount + 10) * 1.25));
       setUsers((profilesRes.data || []).filter((p) => !friendIds.has(p.id)));
       setFindLoading(false);
+    })();
+  }, []);
+
+  // Fetch last completed session
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from('location_sessions')
+        .select('started_at, ended_at, total_seconds')
+        .eq('user_id', user.id)
+        .not('ended_at', 'is', null)
+        .order('ended_at', { ascending: false })
+        .limit(1);
+      if (data?.[0]) setLastSession(data[0]);
     })();
   }, []);
 
@@ -719,20 +797,81 @@ export default function Friends({ navigation }) {
       );
     }
 
+    const animatedBorderColor = borderPulse.interpolate({
+      inputRange: [0, 1],
+      outputRange: isInReg
+        ? ['rgba(38,153,34,0.3)', 'rgba(38,153,34,1)']
+        : ['rgba(229,57,53,0.3)', 'rgba(229,57,53,1)'],
+    });
+
+
+    // Sparkle positions around the card edges
+    const SPARKLE_POSITIONS = [
+      { top: -3, left: '20%' },
+      { top: -3, right: '25%' },
+      { top: '30%', right: -3 },
+      { top: '65%', right: -3 },
+      { bottom: -3, right: '20%' },
+      { bottom: -3, left: '30%' },
+      { top: '60%', left: -3 },
+      { top: '25%', left: -3 },
+    ];
+
+    const onStatusPressIn = () => {
+      Animated.spring(statusCardScale, { toValue: 0.96, useNativeDriver: true, friction: 8, tension: 150 }).start();
+    };
+    const onStatusPressOut = () => {
+      Animated.spring(statusCardScale, { toValue: 1, useNativeDriver: true, friction: 5, tension: 200 }).start();
+    };
+
+    const statusBanner = (
+      <Pressable onPressIn={onStatusPressIn} onPressOut={onStatusPressOut}>
+        <Animated.View style={{ transform: [{ scale: statusCardScale }] }}>
+          <Animated.View style={[
+            styles.statusBanner,
+            { borderColor: animatedBorderColor },
+          ]}>
+            <Text style={styles.statusTitle}>
+              {isInReg ? "In the Reg!" : "Not in the Reg!"}
+            </Text>
+            <Image
+              source={require('../assets/feature-card-1.png')}
+              style={styles.statusImage}
+            />
+            <Text style={styles.statusTimer}>
+              {isInReg ? formatStatusTime(elapsedSeconds) : formatLastSession(lastSession)}
+            </Text>
+            <Text style={styles.statusSub}>
+              {isInReg ? 'Current session' : 'Since last session'}
+            </Text>
+
+            {/* Sparkle particles */}
+            {SPARKLE_POSITIONS.map((pos, i) => (
+              <Animated.View
+                key={`sparkle-${i}`}
+                style={[
+                  styles.sparkle,
+                  pos,
+                  { opacity: sparkleAnims[i] },
+                ]}
+              />
+            ))}
+          </Animated.View>
+        </Animated.View>
+      </Pressable>
+    );
+
     return (
       <SectionList
         sections={activity}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.activityList}
         stickySectionHeadersEnabled={false}
-        ListHeaderComponent={activeSessions.length > 0 ? (
-          <View style={styles.activeSection}>
-            <Text style={styles.sectionHeader}>Your status (others can't see)</Text>
-            {activeSessions.map((s) => (
-              <ActiveSessionCard key={s.user_id} session={s} />
-            ))}
+        ListHeaderComponent={
+          <View>
+            {statusBanner}
           </View>
-        ) : null}
+        }
         renderSectionHeader={({ section: { title } }) => (
           <Text style={styles.sectionHeader}>{title}</Text>
         )}
@@ -742,8 +881,17 @@ export default function Friends({ navigation }) {
           const otherReactions = item.reactions?.filter((r) => r.user_id !== currentUserId) || [];
           const showPicker = pickerSessionId === item.id;
 
+          const cardScale = new Animated.Value(1);
+          const onPressIn = () => {
+            Animated.spring(cardScale, { toValue: 0.96, useNativeDriver: true, friction: 8, tension: 150 }).start();
+          };
+          const onPressOut = () => {
+            Animated.spring(cardScale, { toValue: 1, useNativeDriver: true, friction: 5, tension: 200 }).start();
+          };
+
           return (
-            <View style={styles.activityCard}>
+            <Pressable onPressIn={onPressIn} onPressOut={onPressOut}>
+            <Animated.View style={[styles.activityCard, { transform: [{ scale: cardScale }] }]}>
               <View style={styles.activityRow}>
                 {item.profile?.avatar_url ? (
                   <Image source={{ uri: item.profile.avatar_url }} style={styles.activityAvatar} />
@@ -795,7 +943,8 @@ export default function Friends({ navigation }) {
                   ))}
                 </View>
               )}
-            </View>
+            </Animated.View>
+            </Pressable>
           );
         }}
       />
@@ -912,11 +1061,11 @@ export default function Friends({ navigation }) {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.pageTitle}>Friends</Text>
+        <Text style={styles.pageTitle}>Activity</Text>
 
         <View style={styles.tabRow}>
-          <AnimatedTab label="Activity" active={activeTab === 'Activity'} onPress={() => setActiveTab('Activity')} />
-          <AnimatedTab label="Mine" active={activeTab === 'Mine'} onPress={() => setActiveTab('Mine')} />
+          <AnimatedTab label="Feed" active={activeTab === 'Activity'} onPress={() => setActiveTab('Activity')} />
+          <AnimatedTab label="Friends" active={activeTab === 'Mine'} onPress={() => setActiveTab('Mine')} />
           <AnimatedTab label="Reactions" active={activeTab === 'Reactions'} onPress={() => setActiveTab('Reactions')} />
           <AnimatedTab label="Search" active={activeTab === 'Search'} onPress={() => setActiveTab('Search')} />
         </View>
@@ -943,6 +1092,53 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 24,
     backgroundColor: COLORS.blue,
+  },
+
+  // Status banner
+  statusBanner: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 24,
+    paddingBottom: 14,
+    paddingHorizontal: 20,
+    gap: 6,
+    borderWidth: 3,
+    borderColor: 'transparent',
+    overflow: 'visible',
+    marginBottom: 16,
+  },
+  statusImage: {
+    width: 176,
+    height: 176,
+    resizeMode: 'contain',
+  },
+  statusTitle: {
+    fontFamily: FONTS.ghibli,
+    fontSize: 24,
+    color: COLORS.brown,
+    textAlign: 'center',
+  },
+  statusSub: {
+    fontFamily: FONTS.ghibli,
+    fontSize: 15,
+    color: COLORS.brown,
+    opacity: 0.5,
+    textAlign: 'center',
+  },
+  statusTimer: {
+    fontFamily: FONTS.ghibli,
+    fontSize: 20,
+    color: COLORS.brown,
+    textAlign: 'center',
+  },
+  sparkle: {
+    position: 'absolute',
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#FFD700',
   },
   pageTitle: {
     fontFamily: FONTS.ghibli,
@@ -1136,7 +1332,7 @@ const styles = StyleSheet.create({
   // Activity list
   activityList: {
     paddingHorizontal: 24,
-    paddingTop: 8,
+    paddingTop: 24,
     paddingBottom: 120,
   },
   sectionHeader: {
